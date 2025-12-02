@@ -28,7 +28,7 @@ export function Header({
       <div className="bg-[#F9A825] py-2">
         <div className="container mx-auto px-4">
           <p className="text-center text-sm text-[#3E2723]">
-            Free shipping on orders over $100!
+            Free shipping on orders over ₱1,000! 🇵🇭
           </p>
         </div>
       </div>
@@ -41,7 +41,7 @@ export function Header({
             <img
               src="/images/logo.png"
               alt="PinoyPantry Logo"
-              className="h-24  w-auto transition-transform duration-100 hover:[transform:rotate(3deg)] active:[transform:rotate(-3deg)_scale(0.95)]"
+              className="h-40 w-auto transition-transform duration-100 hover:[transform:rotate(3deg)] active:[transform:rotate(-3deg)_scale(0.95)]"
             />
           </button>
           {/* Search Bar */}
