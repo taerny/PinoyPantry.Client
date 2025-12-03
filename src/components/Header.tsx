@@ -41,7 +41,7 @@ export function Header({
             <img
               src="/images/logo.png"
               alt="PinoyPantry Logo"
-              className="h-40 w-auto transition-transform duration-100 hover:[transform:rotate(3deg)] active:[transform:rotate(-3deg)_scale(0.95)]"
+              className="h-16 lg:h-24 w-auto transition-transform duration-100 hover:[transform:rotate(3deg)] active:[transform:rotate(-3deg)_scale(0.95)]"
             />
           </button>
           {/* Search Bar */}
