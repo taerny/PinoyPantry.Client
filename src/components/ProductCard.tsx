@@ -1,6 +1,6 @@
 import { ShoppingCart, Heart } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { useCart } from './CartContext';
+import { useCart } from '../contexts/CartContext';
 import { useState } from 'react';
 
 interface ProductCardProps {
@@ -75,9 +75,9 @@ export function ProductCard({ name, price, originalPrice, image, badge, rating =
 
         {/* Price */}
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-[#D32F2F]">₱{price.toFixed(2)}</span>
+          <span className="text-[#D32F2F]">${price?.toFixed(2) || '0.00'}</span>
           {originalPrice && (
-            <span className="text-muted-foreground line-through text-sm">₱{originalPrice.toFixed(2)}</span>
+            <span className="text-muted-foreground line-through text-sm">${originalPrice.toFixed(2)}</span>
           )}
         </div>
 

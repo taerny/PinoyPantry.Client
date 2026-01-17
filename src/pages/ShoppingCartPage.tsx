@@ -1,7 +1,7 @@
 import { Minus, Plus, Trash2, ArrowLeft } from 'lucide-react';
-import { ImageWithFallback } from './figma/ImageWithFallback';
+import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 import { useState } from 'react';
-import { useCart } from './CartContext';
+import { useCart } from '../contexts/CartContext';
 
 interface ShoppingCartPageProps {
   onClose: () => void;
@@ -22,7 +22,7 @@ export function ShoppingCartPage({ onClose, onCheckout }: ShoppingCartPageProps)
   });
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = subtotal >= 1000 ? 0 : 100;
+  const shipping = subtotal >= 100 ? 0 : 10;
   const total = subtotal + shipping;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -73,7 +73,7 @@ export function ShoppingCartPage({ onClose, onCheckout }: ShoppingCartPageProps)
                       </div>
                       <div className="flex-1">
                         <h3 className="mb-2">{item.name}</h3>
-                        <p className="text-[#D32F2F] mb-3">₱{item.price.toFixed(2)}</p>
+                        <p className="text-[#D32F2F] mb-3">${item.price.toFixed(2)}</p>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => updateQuantity(item.id, -1)}
@@ -98,7 +98,7 @@ export function ShoppingCartPage({ onClose, onCheckout }: ShoppingCartPageProps)
                           <Trash2 className="w-5 h-5" />
                         </button>
                         <p className="text-[#3E2723]">
-                          ₱{(item.price * item.quantity).toFixed(2)}
+                          ${(item.price * item.quantity).toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -202,23 +202,23 @@ export function ShoppingCartPage({ onClose, onCheckout }: ShoppingCartPageProps)
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span>₱{subtotal.toFixed(2)}</span>
+                    <span>${subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Shipping</span>
                     <span className={shipping === 0 ? 'text-green-600' : ''}>
-                      {shipping === 0 ? 'FREE' : `₱${shipping.toFixed(2)}`}
+                      {shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}
                     </span>
                   </div>
-                  {subtotal < 1000 && (
+                  {subtotal < 100 && (
                     <p className="text-xs text-muted-foreground">
-                      Add ₱{(1000 - subtotal).toFixed(2)} more for free shipping!
+                      Add ${(100 - subtotal).toFixed(2)} more for free shipping!
                     </p>
                   )}
                   <div className="border-t border-gray-200 pt-3">
                     <div className="flex justify-between">
                       <span>Total</span>
-                      <span className="text-[#D32F2F]">₱{total.toFixed(2)}</span>
+                      <span className="text-[#D32F2F]">${total.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
