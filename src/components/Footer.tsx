@@ -7,10 +7,13 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* About */}
           <div>
-            <h3 className="mb-4">
-              <span className="text-[#F9A825]">PINOY</span>
-              <span className="text-white">PANTRY</span>
-            </h3>
+            <div className="mb-4">
+              <img 
+                src="/images/logo.png" 
+                alt="PinoyPantry Logo" 
+                className="h-12 w-auto"
+              />
+            </div>
             <p className="text-white/80 mb-4">
               Your one-stop shop for authentic Filipino foods. Bringing the taste of home to you!
             </p>
@@ -57,17 +60,48 @@ export function Footer() {
             <ul className="space-y-3">
               <li className="flex items-start gap-2 text-white/80">
                 <MapPin className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                <span>123 Filipino Street, Manila, Philippines</span>
+                <span>Dunedin, New Zealand</span>
               </li>
               <li className="flex items-center gap-2 text-white/80">
                 <Phone className="w-5 h-5 flex-shrink-0" />
-                <span>+63 123 456 7890</span>
+                <span>+64 123 456 7890</span>
               </li>
               <li className="flex items-center gap-2 text-white/80">
                 <Mail className="w-5 h-5 flex-shrink-0" />
                 <span>hello@pinoypantry.com</span>
               </li>
             </ul>
+          </div>
+        </div>
+
+        {/* Friend's Business Promotion */}
+        <div className="border-t border-white/20 mt-8 pt-8">
+          <div className="text-center">
+            <a 
+              href="https://www.facebook.com/profile.php?id=61566011519820" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-block group"
+            >
+              <div className="bg-gradient-to-r from-[#F9A825] to-[#FFB300] hover:from-[#FFB300] hover:to-[#F9A825] px-8 py-6 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+                <div className="flex items-center justify-center gap-4">
+                  <img 
+                    src="https://scontent.fwlg3-2.fna.fbcdn.net/v/t39.30808-6/460761764_122099559242533717_2444822735433889418_n.jpg?_nc_cat=105&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=w4eO2EQmxtQQ7kNvwFVkvEB&_nc_oc=AdklSPhvEfKRXMnVYARihP_FRL1EhV6kMD6Hm96vq-IqZfDpPQ4k4kIzKosFHx-CYhiizTybowl7JzjbBXZuprji&_nc_zt=23&_nc_ht=scontent.fwlg3-2.fna&_nc_gid=nAb0iKlMsRYhi3xTunm3qA&oh=00_Afrvl8VTFO1nE4s4m0XPdcM3spmwlRFG352rH7DFk7mYwg&oe=69715D67" 
+                    alt="No. 8 Neo's Home Cooking Logo" 
+                    className="h-16 w-auto rounded-lg shadow-md"
+                  />
+                  <div className="flex flex-col items-start">
+                    <span className="text-[#3E2723] font-bold text-lg group-hover:underline">
+                      Check out No. 8 Neo's Home Cooking
+                    </span>
+                    <span className="text-[#3E2723]/80 text-sm">
+                      Authentic home-cooked Filipino meals
+                    </span>
+                  </div>
+                  <span className="text-[#3E2723] text-xl group-hover:translate-x-1 transition-transform">→</span>
+                </div>
+              </div>
+            </a>
           </div>
         </div>
 

@@ -46,69 +46,93 @@ export class ProductService {
    * Get all products or filtered products
    */
   static async getProducts(filters?: ProductFilters, sort?: ProductSort): Promise<ProductsResponse> {
-    await this.delay(500);
-    
-    let products = [...mockProducts];
+    // Mock path
+    if (USE_MOCK_DATA) {
+      await this.delay(500);
 
-    // Apply filters
-    if (filters) {
-      if (filters.category && filters.category !== 'all-products') {
-        products = products.filter(p => p.category === filters.category);
-      }
+      let products = [...mockProducts];
 
-      if (filters.minPrice !== undefined) {
-        products = products.filter(p => p.price >= filters.minPrice!);
-      }
-
-      if (filters.maxPrice !== undefined) {
-        products = products.filter(p => p.price <= filters.maxPrice!);
-      }
-
-      if (filters.inStock) {
-        products = products.filter(p => p.inStock);
-      }
-
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        products = products.filter(p => 
-          p.name.toLowerCase().includes(searchLower) ||
-          p.description?.toLowerCase().includes(searchLower)
-        );
-      }
-
-      if (filters.tags && filters.tags.length > 0) {
-        products = products.filter(p => 
-          p.tags?.some(tag => filters.tags!.includes(tag))
-        );
-      }
-    }
-
-    // Apply sorting
-    if (sort) {
-      products.sort((a, b) => {
-        let comparison = 0;
-        
-        switch (sort.field) {
-          case 'price':
-            comparison = a.price - b.price;
-            break;
-          case 'name':
-            comparison = a.name.localeCompare(b.name);
-            break;
-          case 'rating':
-            comparison = (a.rating || 0) - (b.rating || 0);
-            break;
-          default:
-            comparison = 0;
+      // Apply filters
+      if (filters) {
+        if (filters.category && filters.category !== 'all-products') {
+          products = products.filter(p => p.category === filters.category);
         }
 
-        return sort.direction === 'desc' ? -comparison : comparison;
-      });
+        if (filters.minPrice !== undefined) {
+          products = products.filter(p => p.price >= filters.minPrice!);
+        }
+
+        if (filters.maxPrice !== undefined) {
+          products = products.filter(p => p.price <= filters.maxPrice!);
+        }
+
+        if (filters.inStock) {
+          products = products.filter(p => p.inStock);
+        }
+
+        if (filters.search) {
+          const searchLower = filters.search.toLowerCase();
+          products = products.filter(p =>
+            p.name.toLowerCase().includes(searchLower) ||
+            p.description?.toLowerCase().includes(searchLower)
+          );
+        }
+
+        if (filters.tags && filters.tags.length > 0) {
+          products = products.filter(p =>
+            p.tags?.some(tag => filters.tags!.includes(tag))
+          );
+        }
+      }
+
+      // Apply sorting
+      if (sort) {
+        products.sort((a, b) => {
+          let comparison = 0;
+
+          switch (sort.field) {
+            case 'price':
+              comparison = a.price - b.price;
+              break;
+            case 'name':
+              comparison = a.name.localeCompare(b.name);
+              break;
+            case 'rating':
+              comparison = (a.rating || 0) - (b.rating || 0);
+              break;
+            default:
+              comparison = 0;
+          }
+
+          return sort.direction === 'desc' ? -comparison : comparison;
+        });
+      }
+
+      return {
+        products,
+        totalCount: products.length,
+        hasMore: false,
+      };
     }
 
+    // Shopify path
+    // If a category filter is provided, treat it as a Shopify collection handle.
+    if (filters?.category && filters.category !== 'all-products') {
+      const products = await ShopifyProductService.getProductsByCollection(filters.category);
+      return {
+        products: this.applyLocalFiltersAndSort(products, { ...filters, category: undefined }, sort),
+        totalCount: products.length,
+        hasMore: false,
+      };
+    }
+
+    const response = await ShopifyProductService.getProducts();
+    const filtered = this.applyLocalFiltersAndSort(response.products, filters, sort);
+
+    // Apply filters
     return {
-      products,
-      totalCount: products.length,
+      products: filtered,
+      totalCount: filtered.length,
       hasMore: false,
     };
   }
@@ -176,6 +200,72 @@ export class ProductService {
    */
   private static delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Local filtering/sorting helper (used for both mock + Shopify results).
+   * Note: Shopify products don't currently have a reliable `category` field,
+   * so category filtering is handled via collections before calling this.
+   */
+  private static applyLocalFiltersAndSort(
+    productsInput: Product[],
+    filters?: ProductFilters,
+    sort?: ProductSort
+  ): Product[] {
+    let products = [...productsInput];
+
+    if (filters) {
+      if (filters.minPrice !== undefined) {
+        products = products.filter(p => p.price >= filters.minPrice!);
+      }
+
+      if (filters.maxPrice !== undefined) {
+        products = products.filter(p => p.price <= filters.maxPrice!);
+      }
+
+      if (filters.inStock) {
+        products = products.filter(p => p.inStock);
+      }
+
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        products = products.filter(p =>
+          p.name.toLowerCase().includes(searchLower) ||
+          p.description?.toLowerCase().includes(searchLower)
+        );
+      }
+
+      if (filters.tags && filters.tags.length > 0) {
+        products = products.filter(p =>
+          p.tags?.some(tag => filters.tags!.includes(tag))
+        );
+      }
+    }
+
+    if (sort) {
+      products.sort((a, b) => {
+        let comparison = 0;
+
+        switch (sort.field) {
+          case 'price':
+            comparison = a.price - b.price;
+            break;
+          case 'name':
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case 'rating':
+            comparison = (a.rating || 0) - (b.rating || 0);
+            break;
+          // createdAt isn't available in our Product model yet
+          default:
+            comparison = 0;
+        }
+
+        return sort.direction === 'desc' ? -comparison : comparison;
+      });
+    }
+
+    return products;
   }
 }
 

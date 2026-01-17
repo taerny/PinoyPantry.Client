@@ -9,6 +9,7 @@ import { SearchResultsPage } from './pages/SearchResultsPage';
 import { ShoppingCartPage } from './pages/ShoppingCartPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { LoginPage } from './pages/LoginPage';
+import { MaintenancePage } from './pages/MaintenancePage';
 import { CartProvider, useCart } from './contexts/CartContext';
 import { useCategories } from './hooks/useCategories';
 
@@ -102,6 +103,14 @@ function AppContent() {
 }
 
 export default function App() {
+  // Check if maintenance mode is enabled
+  const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
+
+  // If maintenance mode is enabled, show maintenance page only
+  if (isMaintenanceMode) {
+    return <MaintenancePage />;
+  }
+
   return (
     <BrowserRouter>
       <CartProvider>
