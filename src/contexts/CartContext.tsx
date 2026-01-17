@@ -12,6 +12,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [showCartDrawer, setShowCartDrawer] = useState(false);
 
   const addToCart = (item: Omit<CartItem, 'quantity'>) => {
     setCartItems(prevItems => {
@@ -30,6 +31,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return [...prevItems, { ...item, quantity: 1 }];
       }
     });
+    
+    // Automatically show cart drawer when item is added
+    setShowCartDrawer(true);
   };
 
   const updateQuantity = (id: string, change: number) => {
@@ -63,6 +67,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         removeItem,
         getCartCount,
         clearCart,
+        showCartDrawer,
+        setShowCartDrawer,
       }}
     >
       {children}

@@ -16,36 +16,44 @@ export function HomePage() {
     <>
       <Hero />
 
-      {/* Features */}
-      <section className="py-8 bg-white border-b border-gray-200">
+      {/* Features - Enhanced */}
+      <section className="py-12 bg-gradient-to-b from-white to-gray-50">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="flex flex-col md:flex-row items-center gap-3 text-center md:text-left">
-              <Package className="w-10 h-10 text-[#D32F2F] flex-shrink-0" />
+            <div className="flex flex-col items-center gap-3 text-center p-4 rounded-xl hover:bg-white hover:shadow-lg transition-all group">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#D32F2F] to-[#B71C1C] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+                <Package className="w-8 h-8 text-white" />
+              </div>
               <div>
-                <h4 className="text-sm">Authentic Products</h4>
-                <p className="text-xs text-muted-foreground">100% Filipino</p>
+                <h4 className="font-bold text-[#3E2723] mb-1 tracking-tight text-base">Authentic Products</h4>
+                <p className="text-xs text-gray-600 font-medium">100% Filipino</p>
               </div>
             </div>
-            <div className="flex flex-col md:flex-row items-center gap-3 text-center md:text-left">
-              <Truck className="w-10 h-10 text-[#D32F2F] flex-shrink-0" />
+            <div className="flex flex-col items-center gap-3 text-center p-4 rounded-xl hover:bg-white hover:shadow-lg transition-all group">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#F9A825] to-[#F57C00] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+                <Truck className="w-8 h-8 text-white" />
+              </div>
               <div>
-                <h4 className="text-sm">Fast Delivery</h4>
-                <p className="text-xs text-muted-foreground">Nationwide Shipping</p>
+                <h4 className="font-bold text-[#3E2723] mb-1 tracking-tight text-base">Fast Delivery</h4>
+                <p className="text-xs text-gray-600 font-medium">Nationwide Shipping</p>
               </div>
             </div>
-            <div className="flex flex-col md:flex-row items-center gap-3 text-center md:text-left">
-              <Shield className="w-10 h-10 text-[#D32F2F] flex-shrink-0" />
+            <div className="flex flex-col items-center gap-3 text-center p-4 rounded-xl hover:bg-white hover:shadow-lg transition-all group">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#4CAF50] to-[#2E7D32] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+                <Shield className="w-8 h-8 text-white" />
+              </div>
               <div>
-                <h4 className="text-sm">Secure Payment</h4>
-                <p className="text-xs text-muted-foreground">Safe & Protected</p>
+                <h4 className="font-bold text-[#3E2723] mb-1 tracking-tight text-base">Secure Payment</h4>
+                <p className="text-xs text-gray-600 font-medium">Safe & Protected</p>
               </div>
             </div>
-            <div className="flex flex-col md:flex-row items-center gap-3 text-center md:text-left">
-              <Headphones className="w-10 h-10 text-[#D32F2F] flex-shrink-0" />
+            <div className="flex flex-col items-center gap-3 text-center p-4 rounded-xl hover:bg-white hover:shadow-lg transition-all group">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#2196F3] to-[#1565C0] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+                <Headphones className="w-8 h-8 text-white" />
+              </div>
               <div>
-                <h4 className="text-sm">24/7 Support</h4>
-                <p className="text-xs text-muted-foreground">We're Here to Help</p>
+                <h4 className="font-bold text-[#3E2723] mb-1 tracking-tight text-base">24/7 Support</h4>
+                <p className="text-xs text-gray-600 font-medium">We're Here to Help</p>
               </div>
             </div>
           </div>
@@ -53,11 +61,16 @@ export function HomePage() {
       </section>
 
       {/* Categories */}
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="mb-2">Shop by Category</h2>
-            <p className="text-muted-foreground">Find your favorite Filipino products</p>
+      <section className="py-20 relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#FAF3E0] via-white to-[#FFF8E1] opacity-50"></div>
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="text-center mb-14">
+            <span className="inline-block px-4 py-1 bg-[#F9A825] text-[#3E2723] text-sm font-semibold rounded-full mb-4">
+              EXPLORE
+            </span>
+            <h2 className="text-4xl font-bold mb-3 text-[#3E2723]">Shop by Category</h2>
+            <p className="text-gray-600 text-lg">Find your favorite Filipino products</p>
           </div>
           {categoriesLoading ? (
             <CategoriesGridSkeleton count={6} />
@@ -82,18 +95,22 @@ export function HomePage() {
       </section>
 
       {/* Featured Products */}
-      <section className="py-16 bg-white">
+      <section className="py-20 bg-gradient-to-b from-white to-gray-50">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-12">
+          <div className="flex items-center justify-between mb-14">
             <div>
-              <h2 className="mb-2">Featured Products</h2>
-              <p className="text-muted-foreground">Handpicked favorites for you</p>
+              <span className="inline-block px-4 py-1 bg-[#D32F2F] text-white text-sm font-semibold rounded-full mb-4">
+                BESTSELLERS
+              </span>
+              <h2 className="text-4xl font-bold mb-3 text-[#3E2723]">Featured Products</h2>
+              <p className="text-gray-600 text-lg">Handpicked favorites for you</p>
             </div>
             <button 
               onClick={() => navigate('/category/all-products')}
-              className="text-[#D32F2F] hover:text-[#B71C1C] transition-colors"
+              className="hidden md:flex items-center gap-2 bg-[#D32F2F] text-white px-6 py-3 rounded-full hover:bg-[#B71C1C] transition-all hover:gap-3 shadow-lg hover:shadow-xl font-medium"
             >
-              View All →
+              View All Products
+              <span>→</span>
             </button>
           </div>
           {productsLoading ? (
@@ -116,22 +133,34 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Newsletter */}
-      <section className="py-16 bg-[#FAF3E0]">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="mb-4 text-[#3E2723]">Stay Updated with PinoyPantry</h2>
-          <p className="mb-8 text-[#6D4C41] max-w-2xl mx-auto">
-            Subscribe to our newsletter and get exclusive deals, new product updates, and Filipino food recipes!
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="flex-1 px-4 py-3 rounded-lg border border-gray-300 text-[#3E2723] focus:outline-none focus:ring-2 focus:ring-[#F9A825] bg-white"
-            />
-            <button className="bg-[#D32F2F] text-white px-8 py-3 rounded-lg hover:bg-[#B71C1C] transition-colors whitespace-nowrap">
-              Subscribe Now
-            </button>
+      {/* Newsletter - Enhanced */}
+      <section className="py-20 relative overflow-hidden bg-gradient-to-br from-[#4A332E] via-[#3E2723] to-[#4A332E]">
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
+        </div>
+        
+        <div className="container mx-auto px-4 text-center relative z-10">
+          <div className="max-w-3xl mx-auto">
+            <span className="inline-block px-4 py-1 bg-[#F9A825] text-[#3E2723] text-sm font-semibold rounded-full mb-6">
+              STAY CONNECTED
+            </span>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
+              Stay Updated with PinoyPantry
+            </h2>
+            <p className="text-xl mb-10 text-gray-300">
+              Subscribe to our newsletter and get exclusive deals, new product updates, and Filipino food recipes!
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
+              <input
+                type="email"
+                placeholder="Enter your email address"
+                className="flex-1 px-6 py-4 rounded-full border-2 border-white/20 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#F9A825] bg-white/10 backdrop-blur-sm"
+              />
+              <button className="bg-[#F9A825] text-[#3E2723] px-8 py-4 rounded-full hover:bg-[#FFB300] transition-all whitespace-nowrap font-semibold shadow-xl hover:shadow-2xl hover:scale-105">
+                Subscribe Now
+              </button>
+            </div>
           </div>
         </div>
       </section>

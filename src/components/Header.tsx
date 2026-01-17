@@ -252,8 +252,8 @@ export function Header({
             )}
           </div>
 
-          {/* Icons - Fixed size */}
-          <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Icons - Fixed size, Always on right */}
+          <div className="flex items-center gap-3 flex-shrink-0 ml-auto md:ml-0">
             <button
               className="md:hidden text-[#3E2723] hover:text-[#F9A825] transition-colors"
               onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}

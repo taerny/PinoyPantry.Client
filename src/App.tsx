@@ -2,19 +2,21 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-ro
 import { useEffect } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
+import { CartDrawer } from './components/CartDrawer';
 import { HomePage } from './pages/HomePage';
 import { CategoryPage } from './pages/CategoryPage';
 import { SearchResultsPage } from './pages/SearchResultsPage';
 import { ShoppingCartPage } from './pages/ShoppingCartPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { LoginPage } from './pages/LoginPage';
-import { CartProvider } from './contexts/CartContext';
+import { CartProvider, useCart } from './contexts/CartContext';
 import { useCategories } from './hooks/useCategories';
 
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { categories } = useCategories();
+  const { showCartDrawer, setShowCartDrawer } = useCart();
 
   // Scroll to top on route change
   useEffect(() => {
@@ -48,7 +50,7 @@ function AppContent() {
   };
 
   const handleCartClick = () => {
-    navigate('/cart');
+    setShowCartDrawer(true);
   };
 
   const handleUserClick = () => {
@@ -57,6 +59,10 @@ function AppContent() {
 
   // Don't show header/footer on login page
   const isLoginPage = location.pathname === '/login';
+
+  const handleCheckoutFromDrawer = () => {
+    navigate('/checkout');
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -84,6 +90,13 @@ function AppContent() {
       </main>
 
       {!isLoginPage && <Footer />}
+
+      {/* Sliding Cart Drawer */}
+      <CartDrawer
+        isOpen={showCartDrawer}
+        onClose={() => setShowCartDrawer(false)}
+        onCheckout={handleCheckoutFromDrawer}
+      />
     </div>
   );
 }

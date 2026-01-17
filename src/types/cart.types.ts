@@ -27,6 +27,8 @@ export interface CartContextType {
   removeItem: (id: string) => void;
   getCartCount: () => number;
   clearCart: () => void;
+  showCartDrawer: boolean;
+  setShowCartDrawer: (show: boolean) => void;
 }
 
 export interface CheckoutInfo {
