@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Mail, Lock, User, Phone, MapPin } from 'lucide-react';
+import { loginCustomer, registerCustomer } from '../services/shopifyCustomerService';
 
 interface LoginPageProps {
   onClose: () => void;
@@ -7,6 +8,8 @@ interface LoginPageProps {
 
 export function LoginPage({ onClose }: LoginPageProps) {
   const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -20,12 +23,39 @@ export function LoginPage({ onClose }: LoginPageProps) {
       ...formData,
       [e.target.name]: e.target.value,
     });
+    // Clear error when user starts typing
+    setError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle login/signup logic here
-    console.log('Form submitted:', formData);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (isLogin) {
+        // Redirect to Shopify's login page
+        await loginCustomer(formData.email, formData.password);
+        // The redirect happens in the service, so this code won't execute
+      } else {
+        // Redirect to Shopify's registration page
+        const nameParts = formData.fullName.trim().split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        await registerCustomer({
+          email: formData.email,
+          password: formData.password,
+          firstName: firstName,
+          lastName: lastName,
+          phone: formData.phone || undefined,
+        });
+        // The redirect happens in the service, so this code won't execute
+      }
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -67,6 +97,13 @@ export function LoginPage({ onClose }: LoginPageProps) {
               Sign Up
             </button>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {error}
+            </div>
+          )}
 
           {/* Login Form */}
           {isLogin ? (
@@ -115,9 +152,10 @@ export function LoginPage({ onClose }: LoginPageProps) {
 
               <button
                 type="submit"
-                className="w-full bg-[#D32F2F] text-white py-3 rounded-lg hover:bg-[#B71C1C] transition-colors"
+                disabled={isLoading}
+                className="w-full bg-[#D32F2F] text-white py-3 rounded-lg hover:bg-[#B71C1C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Login
+                {isLoading ? 'Logging in...' : 'Login'}
               </button>
 
               <div className="relative my-6">
@@ -264,9 +302,10 @@ export function LoginPage({ onClose }: LoginPageProps) {
 
               <button
                 type="submit"
-                className="w-full bg-[#D32F2F] text-white py-3 rounded-lg hover:bg-[#B71C1C] transition-colors"
+                disabled={isLoading}
+                className="w-full bg-[#D32F2F] text-white py-3 rounded-lg hover:bg-[#B71C1C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Account
+                {isLoading ? 'Creating Account...' : 'Create Account'}
               </button>
 
               <div className="relative my-6">
