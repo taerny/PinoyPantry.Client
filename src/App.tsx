@@ -47,6 +47,8 @@ function AppContent() {
   };
 
   const handleSearch = (query: string) => {
+    console.log('App.tsx - handleSearch called with:', query);
+    console.log('Navigating to:', `/search?q=${encodeURIComponent(query)}`);
     navigate(`/search?q=${encodeURIComponent(query)}`);
   };
 

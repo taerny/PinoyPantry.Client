@@ -179,11 +179,24 @@ export class ProductService {
 
   /**
    * Search products by query
+   * If query exactly matches a product name, returns only that product.
+   * Otherwise, returns all products containing the query.
    */
   static async searchProducts(query: string): Promise<Product[]> {
     if (USE_MOCK_DATA) {
       await this.delay(500);
-      const queryLower = query.toLowerCase();
+      const queryLower = query.toLowerCase().trim();
+      
+      // First check for exact name match (from clicking a suggestion)
+      const exactMatch = mockProducts.find(p => 
+        p.name.toLowerCase() === queryLower
+      );
+      
+      if (exactMatch) {
+        return [exactMatch];
+      }
+      
+      // Otherwise do partial matching
       return mockProducts.filter(p =>
         p.name.toLowerCase().includes(queryLower) ||
         p.description?.toLowerCase().includes(queryLower) ||

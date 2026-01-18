@@ -33,6 +33,7 @@ export function Header({
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
   const cartCount = getCartCount();
 
   // Track scroll position for header effects
@@ -106,8 +107,22 @@ export function Header({
   // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      
+      // Check if click is outside desktop search
+      if (searchContainerRef.current && !searchContainerRef.current.contains(target)) {
         setShowSuggestions(false);
+      }
+      
+      // Check if click is outside mobile search
+      // Don't close if clicking on suggestion buttons (they handle their own closing)
+      if (mobileSearchContainerRef.current && !mobileSearchContainerRef.current.contains(target)) {
+        const isButton = (event.target as HTMLElement).tagName === 'BUTTON';
+        if (!isButton) {
+          setIsMobileSearchOpen(false);
+          setSearchQuery(''); // Clear search query when closing
+          setShowSuggestions(false); // Hide suggestions when closing
+        }
       }
     };
 
@@ -126,11 +141,16 @@ export function Header({
   };
 
   const handleSuggestionClick = (productName: string) => {
+    console.log('Suggestion clicked - navigating to:', productName);
+    
     if (onSearch) {
+      // Navigate immediately
       onSearch(productName);
-      setSearchQuery('');
+      
+      // Then close UI elements
       setShowSuggestions(false);
       setIsMobileSearchOpen(false);
+      setSearchQuery('');
     }
   };
 
@@ -138,6 +158,13 @@ export function Header({
     setSearchQuery(value);
     if (value.trim().length < 2) {
       setShowSuggestions(false);
+    }
+  };
+
+  const handleInputFocus = () => {
+    // Show suggestions if there's already text in the input
+    if (searchQuery.trim().length >= 2 && suggestions.length > 0) {
+      setShowSuggestions(true);
     }
   };
 
@@ -172,6 +199,111 @@ export function Header({
             />
           </button>
 
+          {/* Mobile Search - Inline between logo and icons */}
+          <div 
+            ref={mobileSearchContainerRef} 
+            className={`md:hidden flex-1 relative transition-all duration-200 origin-right ${
+              isMobileSearchOpen 
+                ? 'scale-x-100 opacity-100' 
+                : 'scale-x-0 opacity-0 w-0 overflow-hidden'
+            }`}
+          >
+            {isMobileSearchOpen && (
+              <>
+                <form onSubmit={handleSearch}>
+                  <div className="relative w-full">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => handleInputChange(e.target.value)}
+                      onFocus={handleInputFocus}
+                      placeholder="Search products..."
+                      autoFocus
+                      className="w-full px-4 py-2 pr-10 rounded-full text-[#3E2723] bg-white border-2 border-[#F9A825] shadow-md focus:outline-none focus:ring-2 focus:ring-[#F9A825] transition-all"
+                    />
+                    <button 
+                      type="submit"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 bg-[#D32F2F] text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-[#B71C1C] transition-colors"
+                    >
+                      <Search className="w-4 h-4" />
+                    </button>
+                  </div>
+                </form>
+
+                {/* Mobile Search Suggestions */}
+                {showSuggestions && searchQuery.trim().length >= 2 && (
+                  <div className="absolute top-full mt-2 left-0 right-0 bg-white rounded-lg shadow-2xl border border-gray-200 max-h-80 overflow-y-auto z-50">
+                    {isLoadingSuggestions ? (
+                      <div className="p-4 text-center text-gray-500">
+                        <div className="animate-spin inline-block w-5 h-5 border-2 border-[#F9A825] border-t-transparent rounded-full"></div>
+                        <p className="mt-2 text-sm">Searching...</p>
+                      </div>
+                    ) : suggestions.length > 0 ? (
+                      <div className="py-2">
+                        <div className="px-4 py-2 text-xs text-gray-500 font-semibold uppercase">
+                          Suggested Products
+                        </div>
+                        {suggestions.map((product) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleSuggestionClick(product.name);
+                            }}
+                            onTouchStart={(e) => {
+                              e.stopPropagation();
+                              handleSuggestionClick(product.name);
+                            }}
+                            className="w-full px-4 py-3 hover:bg-[#FAF3E0] transition-colors flex items-center gap-3 text-left border-t border-gray-100"
+                          >
+                            {product.image && (
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-12 h-12 object-cover rounded-md flex-shrink-0"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-[#3E2723] truncate">
+                                {product.name}
+                              </p>
+                              <p className="text-xs text-[#D32F2F] font-semibold">
+                                ${product.price.toFixed(2)}
+                              </p>
+                            </div>
+                            <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleSearch(e);
+                          }}
+                          onTouchStart={(e) => {
+                            e.stopPropagation();
+                            handleSearch(e as unknown as React.FormEvent);
+                          }}
+                          className="w-full px-4 py-3 text-sm text-[#F9A825] hover:bg-[#FAF3E0] transition-colors font-medium border-t border-gray-200"
+                        >
+                          See all results for "{searchQuery}" →
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center text-gray-500">
+                        <p className="text-sm">No products found</p>
+                        <p className="text-xs mt-1">Try different keywords</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
           {/* Search Bar - Always on right, shrinks when scrolled */}
           <div ref={searchContainerRef} className={`hidden md:flex ml-auto transition-all duration-300 ${
             isScrolled ? 'max-w-md' : 'max-w-xl'
@@ -182,6 +314,7 @@ export function Header({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => handleInputChange(e.target.value)}
+                  onFocus={handleInputFocus}
                   placeholder="Search products..."
                   className={`w-full px-4 pr-12 rounded-full text-[#3E2723] bg-white border-2 border-white/20 shadow-md focus:outline-none focus:ring-2 focus:ring-[#F9A825] focus:border-[#F9A825] transition-all duration-300 ${
                     isScrolled ? 'py-2 text-sm' : 'py-2.5'
@@ -214,7 +347,12 @@ export function Header({
                     {suggestions.map((product) => (
                       <button
                         key={product.id}
-                        onClick={() => handleSuggestionClick(product.name)}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleSuggestionClick(product.name);
+                        }}
                         className="w-full px-4 py-3 hover:bg-[#FAF3E0] transition-colors flex items-center gap-3 text-left border-t border-gray-100"
                       >
                         {product.image && (
@@ -236,7 +374,12 @@ export function Header({
                       </button>
                     ))}
                     <button
-                      onClick={handleSearch}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleSearch(e);
+                      }}
                       className="w-full px-4 py-3 text-sm text-[#F9A825] hover:bg-[#FAF3E0] transition-colors font-medium border-t border-gray-200"
                     >
                       See all results for "{searchQuery}" →
@@ -289,83 +432,6 @@ export function Header({
             </button>
           </div>
         </div>
-
-        {/* Mobile Search */}
-        {isMobileSearchOpen && (
-          <div className="md:hidden mt-4 relative">
-            <form onSubmit={handleSearch}>
-              <div className="relative w-full">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => handleInputChange(e.target.value)}
-                  placeholder="Search products..."
-                  autoFocus
-                  className="w-full px-4 py-3 pr-12 rounded-full text-[#3E2723] bg-white border-2 border-white/20 shadow-md focus:outline-none focus:ring-2 focus:ring-[#F9A825] focus:border-[#F9A825] transition-all"
-                />
-                <button 
-                  type="submit"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#D32F2F] text-white rounded-full w-9 h-9 flex items-center justify-center hover:bg-[#B71C1C] transition-colors"
-                >
-                  <Search className="w-5 h-5" />
-                </button>
-              </div>
-            </form>
-
-            {/* Mobile Search Suggestions */}
-            {showSuggestions && searchQuery.trim().length >= 2 && (
-              <div className="absolute top-full mt-2 w-full bg-white rounded-lg shadow-2xl border border-gray-200 max-h-80 overflow-y-auto z-50">
-                {isLoadingSuggestions ? (
-                  <div className="p-4 text-center text-gray-500">
-                    <div className="animate-spin inline-block w-5 h-5 border-2 border-[#F9A825] border-t-transparent rounded-full"></div>
-                    <p className="mt-2 text-sm">Searching...</p>
-                  </div>
-                ) : suggestions.length > 0 ? (
-                  <div className="py-2">
-                    <div className="px-4 py-2 text-xs text-gray-500 font-semibold uppercase">
-                      Suggested Products
-                    </div>
-                    {suggestions.map((product) => (
-                      <button
-                        key={product.id}
-                        onClick={() => handleSuggestionClick(product.name)}
-                        className="w-full px-4 py-3 hover:bg-[#FAF3E0] transition-colors flex items-center gap-3 text-left border-t border-gray-100"
-                      >
-                        {product.image && (
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="w-12 h-12 object-cover rounded-md flex-shrink-0"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-[#3E2723] truncate">
-                            {product.name}
-                          </p>
-                          <p className="text-xs text-[#D32F2F] font-semibold">
-                            ${product.price.toFixed(2)}
-                          </p>
-                        </div>
-                        <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      </button>
-                    ))}
-                    <button
-                      onClick={handleSearch}
-                      className="w-full px-4 py-3 text-sm text-[#F9A825] hover:bg-[#FAF3E0] transition-colors font-medium border-t border-gray-200"
-                    >
-                      See all results for "{searchQuery}" →
-                    </button>
-                  </div>
-                ) : (
-                  <div className="p-4 text-center text-gray-500">
-                    <p className="text-sm">No products found</p>
-                    <p className="text-xs mt-1">Try different keywords</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Desktop Navigation - Fixed height */}
@@ -458,3 +524,4 @@ export function Header({
     </header>
   );
 }
+

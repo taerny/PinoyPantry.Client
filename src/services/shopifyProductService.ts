@@ -360,6 +360,16 @@ export class ShopifyProductService {
         };
       });
 
+      // Check for exact name match (from clicking a suggestion)
+      // If query exactly matches a product name, return only that product
+      const queryLower = query.toLowerCase().trim();
+      const exactMatch = products.find(p => p.name.toLowerCase() === queryLower);
+      
+      if (exactMatch) {
+        console.log(`🎯 Exact match found: "${exactMatch.name}"`);
+        return [exactMatch];
+      }
+
       return products;
     } catch (error) {
       console.error('Error searching products:', error);

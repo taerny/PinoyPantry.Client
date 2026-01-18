@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { ProductCard } from '../components/ProductCard';
 import { ProductsGridSkeleton, Skeleton } from '../components/Skeleton';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, ArrowRight } from 'lucide-react';
 import ProductService from '../services/productService';
 import { Product } from '../types';
 
@@ -12,7 +12,9 @@ export function SearchResultsPage() {
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get('q') || '';
   const [rawProducts, setRawProducts] = useState<Product[]>([]);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingRelated, setLoadingRelated] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('featured');
 
   useEffect(() => {
@@ -20,9 +22,19 @@ export function SearchResultsPage() {
       try {
         setLoading(true);
         const results = await ProductService.searchProducts(searchQuery);
+        console.log('Search results for:', searchQuery, 'Found:', results.length, 'products');
         setRawProducts(results);
+
+        // If only 1 result (exact match from suggestion click), fetch related products
+        if (results.length === 1) {
+          const product = results[0];
+          fetchRelatedProducts(product);
+        } else {
+          setRelatedProducts([]);
+        }
       } catch (error) {
         console.error('Search error:', error);
+        setRawProducts([]);
       } finally {
         setLoading(false);
       }
@@ -30,8 +42,69 @@ export function SearchResultsPage() {
 
     if (searchQuery) {
       search();
+    } else {
+      setLoading(false);
+      setRawProducts([]);
+      setRelatedProducts([]);
     }
   }, [searchQuery]);
+
+  // Fetch related products from the same category
+  const fetchRelatedProducts = async (product: Product) => {
+    try {
+      setLoadingRelated(true);
+      
+      console.log('🔍 Fetching related products for:', product.name);
+      console.log('🔍 Product category:', product.category);
+      console.log('🔍 Product tags:', product.tags);
+      
+      // Fetch products from the same category
+      if (product.category) {
+        const categoryProducts = await ProductService.getProductsByCategory(product.category);
+        
+        console.log('🔍 Category products fetched:', categoryProducts.length);
+        
+        // Filter out the current product and limit to 4
+        const related = categoryProducts
+          .filter(p => p.id !== product.id)
+          .slice(0, 4);
+        
+        console.log('🔍 Related products found:', related.length);
+        console.log('🔍 Related products:', related.map(p => ({ name: p.name, category: p.category })));
+        
+        setRelatedProducts(related);
+      } else if (product.tags && product.tags.length > 0) {
+        console.log('⚠️ No category found, using tags to find related products');
+        // If no category, try finding products with similar tags
+        const allProducts = await ProductService.getProducts();
+        const related = allProducts.products
+          .filter(p => {
+            // Don't include the current product
+            if (p.id === product.id) return false;
+            // Find products that share at least one tag
+            return p.tags?.some(tag => product.tags?.includes(tag));
+          })
+          .slice(0, 4);
+        
+        console.log('🔍 Tag-based related products found:', related.length);
+        setRelatedProducts(related);
+      } else {
+        console.log('⚠️ No category or tags, fetching random products');
+        // Last resort: just get some random products
+        const allProducts = await ProductService.getProducts();
+        const related = allProducts.products
+          .filter(p => p.id !== product.id)
+          .slice(0, 4);
+        
+        setRelatedProducts(related);
+      }
+    } catch (error) {
+      console.error('Error fetching related products:', error);
+      setRelatedProducts([]);
+    } finally {
+      setLoadingRelated(false);
+    }
+  };
 
   // Sort products based on selected option
   const products = [...rawProducts].sort((a, b) => {
@@ -139,6 +212,60 @@ export function SearchResultsPage() {
                 />
               ))}
             </div>
+
+            {/* Related Products Section - Only show when single result */}
+            {products.length === 1 && relatedProducts.length > 0 && (
+              <div className="mt-12 border-t pt-8">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-[#3E2723] mb-2">
+                      You might also like
+                    </h2>
+                    <p className="text-gray-600 capitalize">
+                      {products[0].category 
+                        ? `More from ${products[0].category.replace(/-/g, ' ')}`
+                        : 'Similar products you may enjoy'
+                      }
+                    </p>
+                  </div>
+                  {products[0].category && (
+                    <Link
+                      to={`/category/${products[0].category}`}
+                      className="flex items-center gap-2 text-[#F9A825] hover:text-[#D32F2F] transition-colors font-medium group whitespace-nowrap"
+                    >
+                      <span className="capitalize">View all {products[0].category.replace(/-/g, ' ')}</span>
+                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </Link>
+                  )}
+                </div>
+
+                {loadingRelated ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="bg-gray-200 h-48 rounded-lg mb-2"></div>
+                        <div className="bg-gray-200 h-4 rounded mb-1"></div>
+                        <div className="bg-gray-200 h-4 rounded w-2/3"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {relatedProducts.map((product) => (
+                      <ProductCard 
+                        key={product.id}
+                        name={product.name}
+                        price={product.price}
+                        originalPrice={product.originalPrice}
+                        image={product.image}
+                        badge={product.badge}
+                        rating={product.rating}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
