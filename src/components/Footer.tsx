@@ -77,7 +77,7 @@ export function Footer() {
         {/* Friend's Business Promotion */}
         <div className="border-t border-white/20 mt-8 pt-8">
           <h4 className="text-center mb-6 text-xl font-semibold text-white">More Taste of Home!</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* No. 8 Neo's Home Cooking */}
             <a 
               href="https://www.facebook.com/profile.php?id=61566011519820" 
@@ -160,6 +160,32 @@ export function Footer() {
                     </span>
                     <span className="text-[#3E2723]/80 text-xs mt-1">
                       Authentic Asian flavors
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </a>
+
+            {/* Bacolod Inasal */}
+            <a 
+              href="https://www.facebook.com/profile.php?id=61568213924365" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="group"
+            >
+              <div className="bg-gradient-to-r from-[#F9A825] to-[#FFB300] hover:from-[#FFB300] hover:to-[#F9A825] px-6 py-5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 h-full">
+                <div className="flex flex-col items-center text-center gap-3">
+                  <img 
+                    src="https://scontent.fwlg3-2.fna.fbcdn.net/v/t39.30808-6/466361516_10161569811072347_9097673522775395910_n.jpg?_nc_cat=102&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=lEn8FZi6RJUQ7kNvwEoGsRI&_nc_oc=AdkN_ubTE8BRJkHPdrr79x8OKa_ey4DeRS0zv351BLYCsYqXDap_fggT7mu248aIgYoMvlLBa0FO4nQeIr4PNVmL&_nc_zt=23&_nc_ht=scontent.fwlg3-2.fna&_nc_gid=Dd53KnH_68EOReVNF1zr6A&oh=00_AfoeFTiJwJ0OP59jKrwa4tmkylfvAcpD4kEtPH7LHLCV4g&oe=697414AC" 
+                    alt="Bacolod Inasal Logo" 
+                    className="h-20 w-auto rounded-lg shadow-md object-contain"
+                  />
+                  <div className="flex flex-col items-center">
+                    <span className="text-[#3E2723] font-bold text-base group-hover:underline">
+                      Bacolod Inasal
+                    </span>
+                    <span className="text-[#3E2723]/80 text-xs mt-1">
+                      Authentic Ilonggo chargrilled food
                     </span>
                   </div>
                 </div>
