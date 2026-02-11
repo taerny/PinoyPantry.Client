@@ -88,7 +88,7 @@ export function Footer() {
               <div className="bg-gradient-to-r from-[#F9A825] to-[#FFB300] hover:from-[#FFB300] hover:to-[#F9A825] px-6 py-5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 h-full">
                 <div className="flex flex-col items-center text-center gap-3">
                   <img 
-                    src="https://scontent.fwlg3-2.fna.fbcdn.net/v/t39.30808-6/460761764_122099559242533717_2444822735433889418_n.jpg?_nc_cat=105&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=w4eO2EQmxtQQ7kNvwFVkvEB&_nc_oc=AdklSPhvEfKRXMnVYARihP_FRL1EhV6kMD6Hm96vq-IqZfDpPQ4k4kIzKosFHx-CYhiizTybowl7JzjbBXZuprji&_nc_zt=23&_nc_ht=scontent.fwlg3-2.fna&_nc_gid=nAb0iKlMsRYhi3xTunm3qA&oh=00_Afrvl8VTFO1nE4s4m0XPdcM3spmwlRFG352rH7DFk7mYwg&oe=69715D67" 
+                    src="/images/neo.jpg" 
                     alt="No. 8 Neo's Home Cooking Logo" 
                     className="h-20 w-auto rounded-lg shadow-md"
                   />
@@ -119,7 +119,7 @@ export function Footer() {
                     className="h-20 w-auto rounded-lg shadow-md object-contain"
                     onError={(e) => {
                       // Fallback to Facebook CDN if local image not found
-                      e.currentTarget.src = "https://scontent.fwlg3-2.fna.fbcdn.net/v/t39.30808-6/615965238_122109057459185032_8128239205597749354_n.jpg?_nc_cat=107&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=-JsIqVGyS1sQ7kNvwHK_ybL&_nc_oc=Adljvc5Zl-giPb72AXHNo82j6t45FM8ZYPOP26x9YE8t6AXhpfyHClJi6pvq0gqavuvwG8O2ittSqGpBn4rrWykZ&_nc_zt=23&_nc_ht=scontent.fwlg3-2.fna&_nc_gid=v9eva0T5VipqgJY--2VL1g&oh=00_AfoWwhslWqNOljLj1zG_X_5VMJbCx-xU7sWjdLvXfTgxbw&oe=6973DF34";
+                      e.currentTarget.src = "/images/bai.jpg";
                     }}
                   />
                   <div className="flex flex-col items-center">
@@ -144,7 +144,7 @@ export function Footer() {
               <div className="bg-gradient-to-r from-[#F9A825] to-[#FFB300] hover:from-[#FFB300] hover:to-[#F9A825] px-6 py-5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 h-full">
                 <div className="flex flex-col items-center text-center gap-3">
                   <img 
-                    src="https://scontent.fwlg3-2.fna.fbcdn.net/v/t39.30808-6/359467645_111338868690985_7257825876124420067_n.jpg?_nc_cat=109&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=e9zdQTzU3TwQ7kNvwFTneDF&_nc_oc=Adk4iwJS8e0aJ3BfgsoKane__bc96gKTSBnl5xqmc8DK58_ldl2HdR4hRXUzX61WaVbZuU7Qm1YwiwCDF5n003qN&_nc_zt=23&_nc_ht=scontent.fwlg3-2.fna&_nc_gid=XQanNKLfBfmrNCocVdNh0Q&oh=00_Afp8nN5wyX6rDnjkKqk7odXw-gLab1Kb0dki8xT3Qd767w&oe=6973FC02" 
+                    src="/images/eskina.jpg" 
                     alt="Eskina Flavors of Asia Logo" 
                     className="h-20 w-auto rounded-lg shadow-md object-contain"
                     crossOrigin="anonymous"
@@ -176,7 +176,7 @@ export function Footer() {
               <div className="bg-gradient-to-r from-[#F9A825] to-[#FFB300] hover:from-[#FFB300] hover:to-[#F9A825] px-6 py-5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 h-full">
                 <div className="flex flex-col items-center text-center gap-3">
                   <img 
-                    src="https://scontent.fwlg3-2.fna.fbcdn.net/v/t39.30808-6/466361516_10161569811072347_9097673522775395910_n.jpg?_nc_cat=102&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=lEn8FZi6RJUQ7kNvwEoGsRI&_nc_oc=AdkN_ubTE8BRJkHPdrr79x8OKa_ey4DeRS0zv351BLYCsYqXDap_fggT7mu248aIgYoMvlLBa0FO4nQeIr4PNVmL&_nc_zt=23&_nc_ht=scontent.fwlg3-2.fna&_nc_gid=Dd53KnH_68EOReVNF1zr6A&oh=00_AfoeFTiJwJ0OP59jKrwa4tmkylfvAcpD4kEtPH7LHLCV4g&oe=697414AC" 
+                    src="/images/nameets.jpg" 
                     alt="Bacolod Inasal Logo" 
                     className="h-20 w-auto rounded-lg shadow-md object-contain"
                   />

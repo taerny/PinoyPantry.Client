@@ -10,6 +10,8 @@ import { ShoppingCartPage } from './pages/ShoppingCartPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { LoginPage } from './pages/LoginPage';
 import { MaintenancePage } from './pages/MaintenancePage';
+import { StatsComparePage } from './pages/StatsComparePage';
+import { HomeRunsPage } from './pages/HomeRunsPage';
 import { CartProvider, useCart } from './contexts/CartContext';
 import { useCategories } from './hooks/useCategories';
 
@@ -60,8 +62,10 @@ function AppContent() {
     navigate('/login');
   };
 
-  // Don't show header/footer on login page
+  // Don't show header/footer on login page or stats pages
   const isLoginPage = location.pathname === '/login';
+  const isStatsComparePage = location.pathname === '/stats-compare';
+  const isHomeRunsPage = location.pathname === '/home-runs';
 
   const handleCheckoutFromDrawer = () => {
     navigate('/checkout');
@@ -69,7 +73,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {!isLoginPage && (
+      {!isLoginPage && !isStatsComparePage && !isHomeRunsPage && (
         <Header
           onCartClick={handleCartClick}
           onCategoryClick={handleCategoryClick}
@@ -89,10 +93,12 @@ function AppContent() {
           <Route path="/cart" element={<ShoppingCartPage onClose={() => navigate(-1)} onCheckout={() => navigate('/checkout')} />} />
           <Route path="/checkout" element={<CheckoutPage onBack={() => navigate('/cart')} onComplete={() => navigate('/')} />} />
           <Route path="/login" element={<LoginPage onClose={() => navigate('/')} />} />
+          <Route path="/stats-compare" element={<StatsComparePage />} />
+          <Route path="/home-runs" element={<HomeRunsPage />} />
         </Routes>
       </main>
 
-      {!isLoginPage && <Footer />}
+      {!isLoginPage && !isStatsComparePage && !isHomeRunsPage && <Footer />}
 
       {/* Sliding Cart Drawer */}
       <CartDrawer
