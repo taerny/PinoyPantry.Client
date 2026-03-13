@@ -62,6 +62,22 @@ export const mockCategories: Category[] = [
     itemCount: 40,
     description: 'Delicious Filipino candies and sweet treats'
   },
+  {
+    id: 'soups-mixes',
+    title: 'Soups & Mixes',
+    slug: 'soups-mixes',
+    icon: '🍲',
+    itemCount: 30,
+    description: 'Filipino soup bases and cooking mixes'
+  },
+  {
+    id: 'dairy',
+    title: 'Dairy',
+    slug: 'dairy',
+    icon: '🥛',
+    itemCount: 25,
+    description: 'Milk and dairy products'
+  },
 ];
 
 export const mockProducts: Product[] = [

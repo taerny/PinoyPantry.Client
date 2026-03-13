@@ -3,10 +3,13 @@ import { Product, ProductFilters, ProductSort } from '../types';
 import ProductService from '../services/productService';
 
 /**
- * Hook to fetch and manage products
+ * Hook to fetch and manage products with pagination support.
+ * Returns totalCount and totalPages so the UI can render a pager.
  */
 export function useProducts(filters?: ProductFilters, sort?: ProductSort) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,6 +20,9 @@ export function useProducts(filters?: ProductFilters, sort?: ProductSort) {
         setError(null);
         const response = await ProductService.getProducts(filters, sort);
         setProducts(response.products);
+        setTotalCount(response.totalCount);
+        // totalPages comes back from the API; fall back to 1 for mock/Shopify paths
+        setTotalPages((response as { totalPages?: number }).totalPages ?? 1);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch products');
       } finally {
@@ -27,7 +33,7 @@ export function useProducts(filters?: ProductFilters, sort?: ProductSort) {
     fetchProducts();
   }, [JSON.stringify(filters), JSON.stringify(sort)]);
 
-  return { products, loading, error };
+  return { products, totalCount, totalPages, loading, error };
 }
 
 /**

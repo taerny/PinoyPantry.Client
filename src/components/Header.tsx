@@ -450,7 +450,7 @@ export function Header({
                 All Products
               </button>
             </li>
-            {categories.map((category) => (
+            {categories.filter(c => c.slug !== 'all-products').map((category) => (
               <li key={category.slug}>
                 <button
                   onClick={() => onCategoryClick?.(category.slug)}
@@ -488,7 +488,7 @@ export function Header({
                   All Products
                 </button>
               </li>
-              {categories.map((category) => (
+              {categories.filter(c => c.slug !== 'all-products').map((category) => (
                 <li key={category.slug}>
                   <button
                     onClick={() => {

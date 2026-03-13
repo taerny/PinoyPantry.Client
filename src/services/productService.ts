@@ -7,18 +7,20 @@ import {
   getCategoryBySlug 
 } from '../data/mockProducts';
 import { ShopifyProductService } from './shopifyProductService';
+import { ApiProductService } from './apiProductService';
 
 /**
  * Product Service
- * 
- * This service provides a clean abstraction for product data.
- * Automatically switches between mock data and Shopify based on VITE_USE_MOCK_DATA.
- * 
- * Set VITE_USE_MOCK_DATA=true for development with mock data
- * Set VITE_USE_MOCK_DATA=false to use real Shopify data
+ *
+ * Controls which data source is used based on environment variables:
+ *   VITE_USE_MOCK_DATA=true   → local mock data (no network, fast for UI work)
+ *   VITE_USE_MOCK_DATA=false  → .NET API via VITE_API_URL (our backend)
+ *
+ * Shopify is kept as a fallback if VITE_API_URL is not set.
  */
 
 const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+const USE_API = !USE_MOCK_DATA && !!import.meta.env.VITE_API_URL;
 
 export class ProductService {
   /**
@@ -29,8 +31,13 @@ export class ProductService {
       await this.delay(300);
       return mockCategories;
     }
-    
-    // Use Shopify
+
+    if (USE_API) {
+      // Our API doesn't have a /categories endpoint yet — use mock categories
+      // which match what we seeded (Noodles, Condiments, Snacks, etc.)
+      return mockCategories;
+    }
+
     return ShopifyProductService.getCollections();
   }
 
@@ -46,6 +53,10 @@ export class ProductService {
    * Get all products or filtered products
    */
   static async getProducts(filters?: ProductFilters, sort?: ProductSort): Promise<ProductsResponse> {
+    if (USE_API) {
+      return ApiProductService.getProducts(filters);
+    }
+
     // Mock path
     if (USE_MOCK_DATA) {
       await this.delay(500);
@@ -145,8 +156,11 @@ export class ProductService {
       await this.delay(400);
       return getFeaturedProducts();
     }
-    
-    // Use Shopify - get first 6 products as featured
+
+    if (USE_API) {
+      return ApiProductService.getFeaturedProducts();
+    }
+
     const response = await ShopifyProductService.getProducts(6);
     return response.products.slice(0, 6);
   }
@@ -159,13 +173,16 @@ export class ProductService {
       await this.delay(400);
       return getProductsByCategory(categorySlug);
     }
-    
-    // Use Shopify - fetch by collection handle
+
+    if (USE_API) {
+      return ApiProductService.getProductsByCategory(categorySlug);
+    }
+
     if (categorySlug === 'all-products') {
       const response = await ShopifyProductService.getProducts();
       return response.products;
     }
-    
+
     return ShopifyProductService.getProductsByCollection(categorySlug);
   }
 
@@ -173,6 +190,10 @@ export class ProductService {
    * Get a single product by ID
    */
   static async getProductById(id: string): Promise<Product | undefined> {
+    if (USE_API) {
+      return ApiProductService.getProductById(id);
+    }
+
     await this.delay(300);
     return mockProducts.find(p => p.id === id);
   }
@@ -183,6 +204,10 @@ export class ProductService {
    * Otherwise, returns all products containing the query.
    */
   static async searchProducts(query: string): Promise<Product[]> {
+    if (USE_API) {
+      return ApiProductService.searchProducts(query);
+    }
+
     if (USE_MOCK_DATA) {
       await this.delay(500);
       const queryLower = query.toLowerCase().trim();
