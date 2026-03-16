@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Upload, Check, AlertCircle, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import { Upload, Check, AlertCircle, ArrowLeft, Image as ImageIcon, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
@@ -13,10 +14,23 @@ interface Product {
 }
 
 export function AdminUploadPage() {
+  const { user, isAdmin, logout } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  if (!user || !isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-[#3E2723] mb-2">Access Denied</h2>
+          <p className="text-gray-500 mb-4">You must be logged in as an Admin to access this page.</p>
+          <a href="/login" className="text-[#D32F2F] hover:underline">Go to Login</a>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     fetchProducts();
@@ -44,6 +58,7 @@ export function AdminUploadPage() {
     try {
       const res = await fetch(`${API_URL}/api/image/upload?productId=${productId}`, {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${user.token}` },
         body: formData,
       });
 
@@ -91,10 +106,17 @@ export function AdminUploadPage() {
           <a href="/" className="text-gray-500 hover:text-gray-700">
             <ArrowLeft className="w-5 h-5" />
           </a>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold text-[#3E2723]">Product Image Manager</h1>
-            <p className="text-sm text-gray-500">Upload images for your products</p>
+            <p className="text-sm text-gray-500">Logged in as {user.fullName} ({user.role})</p>
           </div>
+          <button
+            onClick={logout}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-red-600 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </button>
         </div>
 
         {message && (

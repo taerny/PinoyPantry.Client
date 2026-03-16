@@ -14,6 +14,7 @@ import { StatsComparePage } from './pages/StatsComparePage';
 import { HomeRunsPage } from './pages/HomeRunsPage';
 import { AdminUploadPage } from './pages/AdminUploadPage';
 import { CartProvider, useCart } from './contexts/CartContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { useCategories } from './hooks/useCategories';
 
 function AppContent() {
@@ -124,9 +125,11 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <CartProvider>
-        <AppContent />
-      </CartProvider>
+      <AuthProvider>
+        <CartProvider>
+          <AppContent />
+        </CartProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
