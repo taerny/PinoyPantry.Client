@@ -21,7 +21,7 @@ export function useProducts(filters?: ProductFilters, sort?: ProductSort) {
         const response = await ProductService.getProducts(filters, sort);
         setProducts(response.products);
         setTotalCount(response.totalCount);
-        // totalPages comes back from the API; fall back to 1 for mock/Shopify paths
+        // totalPages comes back from the API; fall back to 1 for mock data
         setTotalPages((response as { totalPages?: number }).totalPages ?? 1);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch products');

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Mail, Lock, User, Phone, MapPin } from 'lucide-react';
-import { loginCustomer, registerCustomer } from '../services/shopifyCustomerService';
 
 interface LoginPageProps {
   onClose: () => void;
@@ -33,27 +32,12 @@ export function LoginPage({ onClose }: LoginPageProps) {
     setError(null);
 
     try {
-      if (isLogin) {
-        // Redirect to Shopify's login page
-        await loginCustomer(formData.email, formData.password);
-        // The redirect happens in the service, so this code won't execute
-      } else {
-        // Redirect to Shopify's registration page
-        const nameParts = formData.fullName.trim().split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-        
-        await registerCustomer({
-          email: formData.email,
-          password: formData.password,
-          firstName: firstName,
-          lastName: lastName,
-          phone: formData.phone || undefined,
-        });
-        // The redirect happens in the service, so this code won't execute
-      }
+      // Authentication will be implemented with the .NET API in a future phase.
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setError('Authentication coming soon. This feature is under development.');
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
+    } finally {
       setIsLoading(false);
     }
   };

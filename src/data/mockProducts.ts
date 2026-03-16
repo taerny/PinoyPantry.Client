@@ -2,7 +2,7 @@ import { Product, Category } from '../types';
 
 /**
  * Mock Product Data
- * This data will be replaced with Shopify API calls later
+ * This data is used when VITE_API_URL is not set (local development / demo)
  */
 
 export const mockCategories: Category[] = [

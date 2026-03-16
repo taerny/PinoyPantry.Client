@@ -5,7 +5,7 @@ import { CartItem, CartContextType } from '../types';
  * Cart Context
  * 
  * Manages shopping cart state across the application.
- * This will be integrated with Shopify checkout later.
+ * Checkout will be integrated with the .NET API in a future phase.
  */
 
 const CartContext = createContext<CartContextType | undefined>(undefined);

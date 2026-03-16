@@ -9,7 +9,7 @@ export interface CartItem {
   price: number;
   quantity: number;
   image: string;
-  variantId?: string; // For Shopify variants
+  variantId?: string;
   sku?: string;
 }
 

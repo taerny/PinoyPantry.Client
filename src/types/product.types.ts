@@ -1,7 +1,7 @@
 /**
  * Product Types
  * These types define the structure for products in the application.
- * They are designed to work with both mock data and Shopify API responses.
+ * They are designed to work with both mock data and the .NET API.
  */
 
 export interface Product {

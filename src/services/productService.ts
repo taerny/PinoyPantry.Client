@@ -6,41 +6,24 @@ import {
   getProductsByCategory,
   getCategoryBySlug 
 } from '../data/mockProducts';
-import { ShopifyProductService } from './shopifyProductService';
 import { ApiProductService } from './apiProductService';
 
 /**
  * Product Service
  *
  * Controls which data source is used based on environment variables:
- *   VITE_USE_MOCK_DATA=true   → local mock data (no network, fast for UI work)
- *   VITE_USE_MOCK_DATA=false  → .NET API via VITE_API_URL (our backend)
- *
- * Shopify is kept as a fallback if VITE_API_URL is not set.
+ *   VITE_API_URL set          → .NET API (our backend)
+ *   anything else             → local mock data
  */
 
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
-const USE_API = !USE_MOCK_DATA && !!import.meta.env.VITE_API_URL;
-// If neither is configured, fall back to mock data (never fall through to Shopify)
-const USE_SHOPIFY = !USE_MOCK_DATA && !USE_API && !!import.meta.env.VITE_SHOPIFY_STORE_DOMAIN;
+const USE_API = !!import.meta.env.VITE_API_URL;
 
 export class ProductService {
   /**
    * Get all categories
    */
   static async getCategories(): Promise<Category[]> {
-    if (USE_MOCK_DATA) {
-      await this.delay(300);
-      return mockCategories;
-    }
-
-    if (USE_API) {
-      // Our API doesn't have a /categories endpoint yet — use mock categories
-      // which match what we seeded (Noodles, Condiments, Snacks, etc.)
-      return mockCategories;
-    }
-
-    if (USE_SHOPIFY) return ShopifyProductService.getCollections();
+    // API doesn't have a /categories endpoint yet — use mock categories
     return mockCategories;
   }
 
@@ -60,100 +43,39 @@ export class ProductService {
       return ApiProductService.getProducts(filters);
     }
 
-    // Mock path
-    if (USE_MOCK_DATA) {
-      await this.delay(500);
-
-      let products = [...mockProducts];
-
-      // Apply filters
-      if (filters) {
-        if (filters.category && filters.category !== 'all-products') {
-          products = products.filter(p => p.category === filters.category);
-        }
-
-        if (filters.minPrice !== undefined) {
-          products = products.filter(p => p.price >= filters.minPrice!);
-        }
-
-        if (filters.maxPrice !== undefined) {
-          products = products.filter(p => p.price <= filters.maxPrice!);
-        }
-
-        if (filters.inStock) {
-          products = products.filter(p => p.inStock);
-        }
-
-        if (filters.search) {
-          const searchLower = filters.search.toLowerCase();
-          products = products.filter(p =>
-            p.name.toLowerCase().includes(searchLower) ||
-            p.description?.toLowerCase().includes(searchLower)
-          );
-        }
-
-        if (filters.tags && filters.tags.length > 0) {
-          products = products.filter(p =>
-            p.tags?.some(tag => filters.tags!.includes(tag))
-          );
-        }
-      }
-
-      // Apply sorting
-      if (sort) {
-        products.sort((a, b) => {
-          let comparison = 0;
-
-          switch (sort.field) {
-            case 'price':
-              comparison = a.price - b.price;
-              break;
-            case 'name':
-              comparison = a.name.localeCompare(b.name);
-              break;
-            case 'rating':
-              comparison = (a.rating || 0) - (b.rating || 0);
-              break;
-            default:
-              comparison = 0;
-          }
-
-          return sort.direction === 'desc' ? -comparison : comparison;
-        });
-      }
-
-      return {
-        products,
-        totalCount: products.length,
-        hasMore: false,
-      };
-    }
-
-    // Shopify path
-    if (USE_SHOPIFY) {
-      if (filters?.category && filters.category !== 'all-products') {
-        const products = await ShopifyProductService.getProductsByCollection(filters.category);
-        return {
-          products: this.applyLocalFiltersAndSort(products, { ...filters, category: undefined }, sort),
-          totalCount: products.length,
-          hasMore: false,
-        };
-      }
-      const response = await ShopifyProductService.getProducts();
-      const filtered = this.applyLocalFiltersAndSort(response.products, filters, sort);
-      return { products: filtered, totalCount: filtered.length, hasMore: false };
-    }
-
-    // Default: mock data
     await this.delay(500);
     let products = [...mockProducts];
-    if (filters?.category && filters.category !== 'all-products') {
-      products = products.filter(p => p.category === filters.category);
+
+    if (filters) {
+      if (filters.category && filters.category !== 'all-products') {
+        products = products.filter(p => p.category === filters.category);
+      }
+      if (filters.minPrice !== undefined) products = products.filter(p => p.price >= filters.minPrice!);
+      if (filters.maxPrice !== undefined) products = products.filter(p => p.price <= filters.maxPrice!);
+      if (filters.inStock) products = products.filter(p => p.inStock);
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
+        products = products.filter(p =>
+          p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q)
+        );
+      }
+      if (filters.tags?.length) {
+        products = products.filter(p => p.tags?.some(tag => filters.tags!.includes(tag)));
+      }
     }
-    if (filters?.search) {
-      const q = filters.search.toLowerCase();
-      products = products.filter(p => p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q));
+
+    if (sort) {
+      products.sort((a, b) => {
+        let comparison = 0;
+        switch (sort.field) {
+          case 'price': comparison = a.price - b.price; break;
+          case 'name':  comparison = a.name.localeCompare(b.name); break;
+          case 'rating': comparison = (a.rating || 0) - (b.rating || 0); break;
+        }
+        return sort.direction === 'desc' ? -comparison : comparison;
+      });
     }
+
     return { products, totalCount: products.length, hasMore: false };
   }
 
@@ -161,19 +83,8 @@ export class ProductService {
    * Get featured products for homepage
    */
   static async getFeaturedProducts(): Promise<Product[]> {
-    if (USE_MOCK_DATA) {
-      await this.delay(400);
-      return getFeaturedProducts();
-    }
-
-    if (USE_API) {
-      return ApiProductService.getFeaturedProducts();
-    }
-
-    if (USE_SHOPIFY) {
-      const response = await ShopifyProductService.getProducts(6);
-      return response.products.slice(0, 6);
-    }
+    if (USE_API) return ApiProductService.getFeaturedProducts();
+    await this.delay(400);
     return getFeaturedProducts();
   }
 
@@ -181,22 +92,8 @@ export class ProductService {
    * Get products by category slug
    */
   static async getProductsByCategory(categorySlug: string): Promise<Product[]> {
-    if (USE_MOCK_DATA) {
-      await this.delay(400);
-      return getProductsByCategory(categorySlug);
-    }
-
-    if (USE_API) {
-      return ApiProductService.getProductsByCategory(categorySlug);
-    }
-
-    if (USE_SHOPIFY) {
-      if (categorySlug === 'all-products') {
-        const response = await ShopifyProductService.getProducts();
-        return response.products;
-      }
-      return ShopifyProductService.getProductsByCollection(categorySlug);
-    }
+    if (USE_API) return ApiProductService.getProductsByCategory(categorySlug);
+    await this.delay(400);
     return getProductsByCategory(categorySlug);
   }
 
@@ -204,10 +101,7 @@ export class ProductService {
    * Get a single product by ID
    */
   static async getProductById(id: string): Promise<Product | undefined> {
-    if (USE_API) {
-      return ApiProductService.getProductById(id);
-    }
-
+    if (USE_API) return ApiProductService.getProductById(id);
     await this.delay(300);
     return mockProducts.find(p => p.id === id);
   }
@@ -218,34 +112,9 @@ export class ProductService {
    * Otherwise, returns all products containing the query.
    */
   static async searchProducts(query: string): Promise<Product[]> {
-    if (USE_API) {
-      return ApiProductService.searchProducts(query);
-    }
+    if (USE_API) return ApiProductService.searchProducts(query);
 
-    if (USE_MOCK_DATA) {
-      await this.delay(500);
-      const queryLower = query.toLowerCase().trim();
-      
-      // First check for exact name match (from clicking a suggestion)
-      const exactMatch = mockProducts.find(p => 
-        p.name.toLowerCase() === queryLower
-      );
-      
-      if (exactMatch) {
-        return [exactMatch];
-      }
-      
-      // Otherwise do partial matching
-      return mockProducts.filter(p =>
-        p.name.toLowerCase().includes(queryLower) ||
-        p.description?.toLowerCase().includes(queryLower) ||
-        p.category?.toLowerCase().includes(queryLower)
-      );
-    }
-    
-    if (USE_SHOPIFY) return ShopifyProductService.searchProducts(query);
-
-    // Default: mock search
+    await this.delay(500);
     const queryLower = query.toLowerCase().trim();
     const exactMatch = mockProducts.find(p => p.name.toLowerCase() === queryLower);
     if (exactMatch) return [exactMatch];
@@ -263,71 +132,6 @@ export class ProductService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  /**
-   * Local filtering/sorting helper (used for both mock + Shopify results).
-   * Note: Shopify products don't currently have a reliable `category` field,
-   * so category filtering is handled via collections before calling this.
-   */
-  private static applyLocalFiltersAndSort(
-    productsInput: Product[],
-    filters?: ProductFilters,
-    sort?: ProductSort
-  ): Product[] {
-    let products = [...productsInput];
-
-    if (filters) {
-      if (filters.minPrice !== undefined) {
-        products = products.filter(p => p.price >= filters.minPrice!);
-      }
-
-      if (filters.maxPrice !== undefined) {
-        products = products.filter(p => p.price <= filters.maxPrice!);
-      }
-
-      if (filters.inStock) {
-        products = products.filter(p => p.inStock);
-      }
-
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        products = products.filter(p =>
-          p.name.toLowerCase().includes(searchLower) ||
-          p.description?.toLowerCase().includes(searchLower)
-        );
-      }
-
-      if (filters.tags && filters.tags.length > 0) {
-        products = products.filter(p =>
-          p.tags?.some(tag => filters.tags!.includes(tag))
-        );
-      }
-    }
-
-    if (sort) {
-      products.sort((a, b) => {
-        let comparison = 0;
-
-        switch (sort.field) {
-          case 'price':
-            comparison = a.price - b.price;
-            break;
-          case 'name':
-            comparison = a.name.localeCompare(b.name);
-            break;
-          case 'rating':
-            comparison = (a.rating || 0) - (b.rating || 0);
-            break;
-          // createdAt isn't available in our Product model yet
-          default:
-            comparison = 0;
-        }
-
-        return sort.direction === 'desc' ? -comparison : comparison;
-      });
-    }
-
-    return products;
-  }
 }
 
 // Export as default for convenience
