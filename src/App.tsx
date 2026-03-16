@@ -13,6 +13,9 @@ import { MaintenancePage } from './pages/MaintenancePage';
 import { StatsComparePage } from './pages/StatsComparePage';
 import { HomeRunsPage } from './pages/HomeRunsPage';
 import { AdminUploadPage } from './pages/AdminUploadPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { AdminProductsPage } from './pages/AdminProductsPage';
+import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { CartProvider, useCart } from './contexts/CartContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { useCategories } from './hooks/useCategories';
@@ -99,6 +102,9 @@ function AppContent() {
           <Route path="/stats-compare" element={<StatsComparePage />} />
           <Route path="/home-runs" element={<HomeRunsPage />} />
           <Route path="/admin/upload" element={<AdminUploadPage />} />
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+          <Route path="/admin/products" element={<AdminProductsPage />} />
+          <Route path="/admin/settings" element={<AdminSettingsPage />} />
         </Routes>
       </main>
 

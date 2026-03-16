@@ -1,7 +1,8 @@
-import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, CreditCard } from 'lucide-react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 import { useState } from 'react';
 import { useCart } from '../contexts/CartContext';
+import { StripeCheckout } from '../components/StripeCheckout';
 
 interface CheckoutPageProps {
   onBack: () => void;
@@ -329,17 +330,36 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
                 </div>
               </div>
 
-              <button
-                onClick={handlePlaceOrder}
-                disabled={isProcessing}
-                className={`w-full py-3 rounded-lg transition-colors mb-3 ${
-                  isProcessing
-                    ? 'bg-gray-400 text-white cursor-not-allowed'
-                    : 'bg-[#D32F2F] text-white hover:bg-[#B71C1C]'
-                }`}
-              >
-                {isProcessing ? 'Processing Order...' : 'Place Order'}
-              </button>
+              {paymentMethod === 'card' ? (
+                <div className="border rounded-lg p-4 mb-3">
+                  <div className="flex items-center gap-2 mb-3 text-sm font-medium text-[#3E2723]">
+                    <CreditCard className="w-4 h-4" />
+                    Pay with Card (Stripe)
+                  </div>
+                  <StripeCheckout
+                    items={cartItems.map(i => ({ id: typeof i.id === 'string' ? parseInt(i.id) || 0 : i.id, name: i.name, price: i.price, quantity: i.quantity }))}
+                    total={total}
+                    onSuccess={() => {
+                      const orderNum = 'PN' + Math.random().toString(36).substr(2, 9).toUpperCase();
+                      setOrderNumber(orderNum);
+                      setOrderComplete(true);
+                    }}
+                    onCancel={() => setPaymentMethod('')}
+                  />
+                </div>
+              ) : (
+                <button
+                  onClick={handlePlaceOrder}
+                  disabled={isProcessing}
+                  className={`w-full py-3 rounded-lg transition-colors mb-3 ${
+                    isProcessing
+                      ? 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-[#D32F2F] text-white hover:bg-[#B71C1C]'
+                  }`}
+                >
+                  {isProcessing ? 'Processing Order...' : 'Place Order'}
+                </button>
+              )}
 
               <p className="text-xs text-center text-muted-foreground">
                 By placing your order, you agree to our terms and conditions

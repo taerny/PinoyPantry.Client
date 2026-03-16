@@ -80,7 +80,7 @@ export function LoginPage({ onClose }: LoginPageProps) {
             </button>
             {user.role === 'Admin' && (
               <a
-                href="/admin/upload"
+                href="/admin/dashboard"
                 className="block w-full bg-blue-50 text-blue-600 py-3 rounded-lg hover:bg-blue-100 transition-colors text-center font-medium"
               >
                 Go to Admin Panel

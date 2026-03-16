@@ -1,4 +1,4 @@
-import { ShoppingCart, Search, Menu, User, X, Shield, LogOut } from "lucide-react";
+import { ShoppingCart, Search, Menu, User, X, Shield, LogOut, Settings, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "../contexts/CartContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -26,6 +26,8 @@ export function Header({
 }: HeaderProps) {
   const { getCartCount } = useCart();
   const { user, isAdmin, logout } = useAuth();
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -122,9 +124,13 @@ export function Header({
         const isButton = (event.target as HTMLElement).tagName === 'BUTTON';
         if (!isButton) {
           setIsMobileSearchOpen(false);
-          setSearchQuery(''); // Clear search query when closing
-          setShowSuggestions(false); // Hide suggestions when closing
+          setSearchQuery('');
+          setShowSuggestions(false);
         }
+      }
+
+      if (accountRef.current && !accountRef.current.contains(target)) {
+        setIsAccountOpen(false);
       }
     };
 
@@ -406,22 +412,59 @@ export function Header({
               <Search className="w-5 h-5" />
             </button>
             {user ? (
-              <div className="hidden md:flex items-center gap-2">
-                {isAdmin && (
-                  <a href="/admin/upload" className="text-[#D32F2F] hover:text-[#B71C1C] transition-colors" title="Admin Panel">
-                    <Shield className="w-5 h-5" />
-                  </a>
-                )}
-                <span className="text-xs text-[#3E2723] max-w-[80px] truncate" title={user.fullName}>
-                  {user.fullName.split(' ')[0]}
-                </span>
+              <div className="hidden md:block relative" ref={accountRef}>
                 <button
-                  className="text-[#3E2723] hover:text-[#D32F2F] transition-colors"
-                  onClick={logout}
-                  title="Logout"
+                  onClick={() => setIsAccountOpen(!isAccountOpen)}
+                  className="flex items-center gap-1.5 text-[#3E2723] hover:text-[#F9A825] transition-colors"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-full bg-[#3E2723] text-white flex items-center justify-center text-xs font-bold">
+                    {user.fullName.charAt(0).toUpperCase()}
+                  </div>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isAccountOpen ? 'rotate-180' : ''}`} />
                 </button>
+
+                {isAccountOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-100 py-2 z-50">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className="font-semibold text-[#3E2723] text-sm">{user.fullName}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                      <span className={`inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                        isAdmin ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {user.role}
+                      </span>
+                    </div>
+
+                    {isAdmin && (
+                      <a
+                        href="/admin/dashboard"
+                        onClick={() => setIsAccountOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#3E2723] hover:bg-gray-50 transition-colors"
+                      >
+                        <Shield className="w-4 h-4 text-[#D32F2F]" />
+                        Admin Panel
+                      </a>
+                    )}
+
+                    <button
+                      onClick={() => { onUserClick?.(); setIsAccountOpen(false); }}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#3E2723] hover:bg-gray-50 transition-colors w-full text-left"
+                    >
+                      <Settings className="w-4 h-4 text-gray-500" />
+                      My Account
+                    </button>
+
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <button
+                        onClick={() => { logout(); setIsAccountOpen(false); }}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors w-full text-left"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <button
@@ -536,7 +579,7 @@ export function Header({
                     </div>
                     {isAdmin && (
                       <a
-                        href="/admin/upload"
+                        href="/admin/dashboard"
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="text-[#F9A825] block py-2 hover:text-white transition-colors flex items-center gap-2"
                       >
