@@ -12,6 +12,7 @@ import { LoginPage } from './pages/LoginPage';
 import { MaintenancePage } from './pages/MaintenancePage';
 import { StatsComparePage } from './pages/StatsComparePage';
 import { HomeRunsPage } from './pages/HomeRunsPage';
+import { AdminUploadPage } from './pages/AdminUploadPage';
 import { CartProvider, useCart } from './contexts/CartContext';
 import { useCategories } from './hooks/useCategories';
 
@@ -66,6 +67,7 @@ function AppContent() {
   const isLoginPage = location.pathname === '/login';
   const isStatsComparePage = location.pathname === '/stats-compare';
   const isHomeRunsPage = location.pathname === '/home-runs';
+  const isAdminPage = location.pathname.startsWith('/admin');
 
   const handleCheckoutFromDrawer = () => {
     navigate('/checkout');
@@ -73,7 +75,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {!isLoginPage && !isStatsComparePage && !isHomeRunsPage && (
+      {!isLoginPage && !isStatsComparePage && !isHomeRunsPage && !isAdminPage && (
         <Header
           onCartClick={handleCartClick}
           onCategoryClick={handleCategoryClick}
@@ -95,10 +97,11 @@ function AppContent() {
           <Route path="/login" element={<LoginPage onClose={() => navigate('/')} />} />
           <Route path="/stats-compare" element={<StatsComparePage />} />
           <Route path="/home-runs" element={<HomeRunsPage />} />
+          <Route path="/admin/upload" element={<AdminUploadPage />} />
         </Routes>
       </main>
 
-      {!isLoginPage && !isStatsComparePage && !isHomeRunsPage && <Footer />}
+      {!isLoginPage && !isStatsComparePage && !isHomeRunsPage && !isAdminPage && <Footer />}
 
       {/* Sliding Cart Drawer */}
       <CartDrawer
