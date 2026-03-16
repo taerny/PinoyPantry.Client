@@ -14,27 +14,17 @@ interface Product {
 }
 
 export function AdminUploadPage() {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, loading: authLoading, logout } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  if (!user || !isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-[#3E2723] mb-2">Access Denied</h2>
-          <p className="text-gray-500 mb-4">You must be logged in as an Admin to access this page.</p>
-          <a href="/login" className="text-[#D32F2F] hover:underline">Go to Login</a>
-        </div>
-      </div>
-    );
-  }
-
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    if (!authLoading && user && isAdmin) {
+      fetchProducts();
+    }
+  }, [authLoading, user, isAdmin]);
 
   async function fetchProducts() {
     try {
@@ -49,6 +39,7 @@ export function AdminUploadPage() {
   }
 
   async function handleUpload(productId: number, file: File) {
+    if (!user) return;
     setUploading(productId);
     setMessage(null);
 
@@ -89,6 +80,26 @@ export function AdminUploadPage() {
       if (file) handleUpload(productId, file);
     };
     input.click();
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user || !isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-[#3E2723] mb-2">Access Denied</h2>
+          <p className="text-gray-500 mb-4">You must be logged in as an Admin to access this page.</p>
+          <a href="/login" className="text-[#D32F2F] hover:underline">Go to Login</a>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {
