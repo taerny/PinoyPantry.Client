@@ -10,21 +10,8 @@ const storeDomain = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || '';
 const storefrontAccessToken = import.meta.env.VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN || '';
 const apiVersion = import.meta.env.VITE_SHOPIFY_API_VERSION || '2025-07';
 
-// Validate required environment variables in production
-if (import.meta.env.PROD) {
-  if (!storeDomain) {
-    throw new Error(
-      'VITE_SHOPIFY_STORE_DOMAIN is required in production. ' +
-      'Please set it in your Netlify environment variables.'
-    );
-  }
-  if (!storefrontAccessToken) {
-    throw new Error(
-      'VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN is required in production. ' +
-      'Please set it in your Netlify environment variables.'
-    );
-  }
-}
+// Shopify is no longer the active data source — validation removed.
+// Data now comes from the .NET API via VITE_API_URL.
 
 export const shopifyClient = createStorefrontClient({
   storeDomain,
