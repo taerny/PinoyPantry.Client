@@ -1,6 +1,7 @@
-import { ShoppingCart, Search, Menu, User, X } from "lucide-react";
+import { ShoppingCart, Search, Menu, User, X, Shield, LogOut } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "../contexts/CartContext";
+import { useAuth } from "../contexts/AuthContext";
 import { Category, Product } from "../types";
 import ProductService from "../services/productService";
 
@@ -24,6 +25,7 @@ export function Header({
   categories = [],
 }: HeaderProps) {
   const { getCartCount } = useCart();
+  const { user, isAdmin, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -403,12 +405,32 @@ export function Header({
             >
               <Search className="w-5 h-5" />
             </button>
-            <button
-              className="text-[#3E2723] hover:text-[#F9A825] transition-colors hidden md:block"
-              onClick={onUserClick}
-            >
-              <User className="w-5 h-5" />
-            </button>
+            {user ? (
+              <div className="hidden md:flex items-center gap-2">
+                {isAdmin && (
+                  <a href="/admin/upload" className="text-[#D32F2F] hover:text-[#B71C1C] transition-colors" title="Admin Panel">
+                    <Shield className="w-5 h-5" />
+                  </a>
+                )}
+                <span className="text-xs text-[#3E2723] max-w-[80px] truncate" title={user.fullName}>
+                  {user.fullName.split(' ')[0]}
+                </span>
+                <button
+                  className="text-[#3E2723] hover:text-[#D32F2F] transition-colors"
+                  onClick={logout}
+                  title="Logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                className="text-[#3E2723] hover:text-[#F9A825] transition-colors hidden md:block"
+                onClick={onUserClick}
+              >
+                <User className="w-5 h-5" />
+              </button>
+            )}
             <button
               className="relative text-[#3E2723] hover:text-[#F9A825] transition-colors"
               onClick={onCartClick}
@@ -506,16 +528,39 @@ export function Header({
                 </li>
               ))}
               <li className="pt-4 border-t border-[#6D4C41]">
-                <button
-                  onClick={() => {
-                    onUserClick?.();
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="text-white block py-2 hover:text-[#F9A825] transition-colors flex items-center gap-2"
-                >
-                  <User className="w-5 h-5" />
-                  My Account
-                </button>
+                {user ? (
+                  <>
+                    <div className="text-white/70 text-sm py-2 flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      {user.fullName} ({user.role})
+                    </div>
+                    {isAdmin && (
+                      <a
+                        href="/admin/upload"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="text-[#F9A825] block py-2 hover:text-white transition-colors flex items-center gap-2"
+                      >
+                        <Shield className="w-5 h-5" />
+                        Admin Panel
+                      </a>
+                    )}
+                    <button
+                      onClick={() => { logout(); setIsMobileMenuOpen(false); }}
+                      className="text-red-400 block py-2 hover:text-red-300 transition-colors flex items-center gap-2"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => { onUserClick?.(); setIsMobileMenuOpen(false); }}
+                    className="text-white block py-2 hover:text-[#F9A825] transition-colors flex items-center gap-2"
+                  >
+                    <User className="w-5 h-5" />
+                    Login / Sign Up
+                  </button>
+                )}
               </li>
             </ul>
           </div>
