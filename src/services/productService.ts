@@ -21,6 +21,8 @@ import { ApiProductService } from './apiProductService';
 
 const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 const USE_API = !USE_MOCK_DATA && !!import.meta.env.VITE_API_URL;
+// If neither is configured, fall back to mock data (never fall through to Shopify)
+const USE_SHOPIFY = !USE_MOCK_DATA && !USE_API && !!import.meta.env.VITE_SHOPIFY_STORE_DOMAIN;
 
 export class ProductService {
   /**
@@ -38,7 +40,8 @@ export class ProductService {
       return mockCategories;
     }
 
-    return ShopifyProductService.getCollections();
+    if (USE_SHOPIFY) return ShopifyProductService.getCollections();
+    return mockCategories;
   }
 
   /**
@@ -127,25 +130,31 @@ export class ProductService {
     }
 
     // Shopify path
-    // If a category filter is provided, treat it as a Shopify collection handle.
-    if (filters?.category && filters.category !== 'all-products') {
-      const products = await ShopifyProductService.getProductsByCollection(filters.category);
-      return {
-        products: this.applyLocalFiltersAndSort(products, { ...filters, category: undefined }, sort),
-        totalCount: products.length,
-        hasMore: false,
-      };
+    if (USE_SHOPIFY) {
+      if (filters?.category && filters.category !== 'all-products') {
+        const products = await ShopifyProductService.getProductsByCollection(filters.category);
+        return {
+          products: this.applyLocalFiltersAndSort(products, { ...filters, category: undefined }, sort),
+          totalCount: products.length,
+          hasMore: false,
+        };
+      }
+      const response = await ShopifyProductService.getProducts();
+      const filtered = this.applyLocalFiltersAndSort(response.products, filters, sort);
+      return { products: filtered, totalCount: filtered.length, hasMore: false };
     }
 
-    const response = await ShopifyProductService.getProducts();
-    const filtered = this.applyLocalFiltersAndSort(response.products, filters, sort);
-
-    // Apply filters
-    return {
-      products: filtered,
-      totalCount: filtered.length,
-      hasMore: false,
-    };
+    // Default: mock data
+    await this.delay(500);
+    let products = [...mockProducts];
+    if (filters?.category && filters.category !== 'all-products') {
+      products = products.filter(p => p.category === filters.category);
+    }
+    if (filters?.search) {
+      const q = filters.search.toLowerCase();
+      products = products.filter(p => p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q));
+    }
+    return { products, totalCount: products.length, hasMore: false };
   }
 
   /**
@@ -161,8 +170,11 @@ export class ProductService {
       return ApiProductService.getFeaturedProducts();
     }
 
-    const response = await ShopifyProductService.getProducts(6);
-    return response.products.slice(0, 6);
+    if (USE_SHOPIFY) {
+      const response = await ShopifyProductService.getProducts(6);
+      return response.products.slice(0, 6);
+    }
+    return getFeaturedProducts();
   }
 
   /**
@@ -178,12 +190,14 @@ export class ProductService {
       return ApiProductService.getProductsByCategory(categorySlug);
     }
 
-    if (categorySlug === 'all-products') {
-      const response = await ShopifyProductService.getProducts();
-      return response.products;
+    if (USE_SHOPIFY) {
+      if (categorySlug === 'all-products') {
+        const response = await ShopifyProductService.getProducts();
+        return response.products;
+      }
+      return ShopifyProductService.getProductsByCollection(categorySlug);
     }
-
-    return ShopifyProductService.getProductsByCollection(categorySlug);
+    return getProductsByCategory(categorySlug);
   }
 
   /**
@@ -229,8 +243,17 @@ export class ProductService {
       );
     }
     
-    // Use Shopify search
-    return ShopifyProductService.searchProducts(query);
+    if (USE_SHOPIFY) return ShopifyProductService.searchProducts(query);
+
+    // Default: mock search
+    const queryLower = query.toLowerCase().trim();
+    const exactMatch = mockProducts.find(p => p.name.toLowerCase() === queryLower);
+    if (exactMatch) return [exactMatch];
+    return mockProducts.filter(p =>
+      p.name.toLowerCase().includes(queryLower) ||
+      p.description?.toLowerCase().includes(queryLower) ||
+      p.category?.toLowerCase().includes(queryLower)
+    );
   }
 
   /**
