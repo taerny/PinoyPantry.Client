@@ -114,7 +114,7 @@ export function AdminUploadPage() {
   const uploadedCount = products.filter(p => p.imageUrl).length;
 
   return (
-    <AdminLayout activePage="images">
+    <AdminLayout activePage="products">
       {/* Stats Bar */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">

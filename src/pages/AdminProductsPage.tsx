@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, X, Check, AlertCircle, Package } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Pencil, Trash2, X, Check, AlertCircle, Package, Upload, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AdminLayout } from '../components/AdminLayout';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
+
+const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains'];
 
 interface Product {
   id: number;
@@ -13,6 +15,14 @@ interface Product {
   imageUrl: string;
   category: string;
   stockQuantity: number;
+}
+
+type InlineField = 'price' | 'stockQuantity' | 'category';
+
+interface InlineEdit {
+  id: number;
+  field: InlineField;
+  value: string;
 }
 
 const EMPTY_FORM = { name: '', description: '', price: '', category: '', stockQuantity: '', imageUrl: '' };
@@ -27,9 +37,24 @@ export function AdminProductsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
+  // Inline editing state
+  const [inlineEdit, setInlineEdit] = useState<InlineEdit | null>(null);
+  const inlineRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
+
+  // Image upload state (in modal)
+  const [uploading, setUploading] = useState(false);
+
   useEffect(() => {
     if (!authLoading && user && isAdmin) fetchProducts();
   }, [authLoading, user, isAdmin]);
+
+  // Focus inline input when it appears
+  useEffect(() => {
+    if (inlineEdit && inlineRef.current) {
+      inlineRef.current.focus();
+      if (inlineRef.current instanceof HTMLInputElement) inlineRef.current.select();
+    }
+  }, [inlineEdit]);
 
   async function fetchProducts() {
     try {
@@ -40,6 +65,7 @@ export function AdminProductsPage() {
     finally { setLoading(false); }
   }
 
+  // ── Modal form submit (create / full edit) ──────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
@@ -61,9 +87,7 @@ export function AdminProductsPage() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
         body: JSON.stringify(body),
       });
-
       if (!res.ok) { const err = await res.json(); throw new Error(err.message || 'Failed'); }
-
       setMessage({ type: 'success', text: editingId ? 'Product updated!' : 'Product created!' });
       setShowForm(false);
       setEditingId(null);
@@ -74,6 +98,40 @@ export function AdminProductsPage() {
     }
   }
 
+  // ── Image upload (inside modal) ─────────────────────────────────────────────
+  function handleImageSelect() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png,image/webp,image/gif';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file || !user) return;
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const productIdParam = editingId ? `?productId=${editingId}` : '';
+        const res = await fetch(`${API_URL}/api/image/upload${productIdParam}`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${user.token}` },
+          body: formData,
+        });
+        if (!res.ok) throw new Error('Upload failed');
+        const data = await res.json();
+        setForm(f => ({ ...f, imageUrl: data.imageUrl }));
+        if (editingId) {
+          setProducts(prev => prev.map(p => p.id === editingId ? { ...p, imageUrl: data.imageUrl } : p));
+        }
+      } catch (err: any) {
+        setMessage({ type: 'error', text: err.message || 'Image upload failed.' });
+      } finally {
+        setUploading(false);
+      }
+    };
+    input.click();
+  }
+
+  // ── Delete ──────────────────────────────────────────────────────────────────
   async function handleDelete(id: number) {
     if (!user) return;
     try {
@@ -90,14 +148,54 @@ export function AdminProductsPage() {
     }
   }
 
+  // ── Inline edit helpers ──────────────────────────────────────────────────────
+  function startInline(id: number, field: InlineField, value: string) {
+    setInlineEdit({ id, field, value });
+  }
+
+  async function saveInline() {
+    if (!inlineEdit || !user) { setInlineEdit(null); return; }
+    const product = products.find(p => p.id === inlineEdit.id);
+    if (!product) { setInlineEdit(null); return; }
+
+    const updated = {
+      name: product.name ?? '',
+      description: product.description ?? '',
+      imageUrl: product.imageUrl ?? '',
+      price: inlineEdit.field === 'price' ? parseFloat(inlineEdit.value) || (product.price ?? 0) : (product.price ?? 0),
+      stockQuantity: inlineEdit.field === 'stockQuantity' ? parseInt(inlineEdit.value, 10) || (product.stockQuantity ?? 0) : (product.stockQuantity ?? 0),
+      category: inlineEdit.field === 'category' ? inlineEdit.value : (product.category ?? ''),
+    };
+
+    setInlineEdit(null);
+
+    // Optimistically update UI
+    setProducts(prev => prev.map(p => p.id === inlineEdit.id ? { ...p, ...updated } : p));
+
+    try {
+      const res = await fetch(`${API_URL}/api/products/${inlineEdit.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
+        body: JSON.stringify(updated),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      setMessage({ type: 'success', text: `Updated ${inlineEdit.field === 'stockQuantity' ? 'stock' : inlineEdit.field}.` });
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to save inline change.' });
+      fetchProducts(); // revert on failure
+    }
+  }
+
+  function cancelInline() { setInlineEdit(null); }
+
   function openEdit(product: Product) {
     setForm({
-      name: product.name,
-      description: product.description,
-      price: product.price.toString(),
-      category: product.category,
-      stockQuantity: product.stockQuantity.toString(),
-      imageUrl: product.imageUrl,
+      name: product.name ?? '',
+      description: product.description ?? '',
+      price: String(product.price ?? 0),
+      category: product.category ?? '',
+      stockQuantity: String(product.stockQuantity ?? 0),
+      imageUrl: product.imageUrl ?? '',
     });
     setEditingId(product.id);
     setShowForm(true);
@@ -116,7 +214,10 @@ export function AdminProductsPage() {
     <AdminLayout activePage="products">
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-[#3E2723]">Product Management</h2>
+          <div>
+            <h2 className="text-xl font-bold text-[#3E2723]">Product Management</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Click price, stock or category to edit inline</p>
+          </div>
           <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 bg-[#D32F2F] text-white rounded-xl text-sm font-medium hover:bg-[#B71C1C] transition-colors shadow-sm">
             <Plus className="w-4 h-4" /> Add Product
           </button>
@@ -126,9 +227,11 @@ export function AdminProductsPage() {
           <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
             {message.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
             {message.text}
+            <button onClick={() => setMessage(null)} className="ml-auto text-current opacity-50 hover:opacity-100"><X className="w-3.5 h-3.5" /></button>
           </div>
         )}
 
+        {/* ── Add / Edit Modal ─────────────────────────────────────────── */}
         {showForm && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -137,31 +240,63 @@ export function AdminProductsPage() {
                 <button onClick={() => { setShowForm(false); setEditingId(null); }} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
               </div>
               <form onSubmit={handleSubmit} className="p-5 space-y-4">
+
+                {/* Image section */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Product Image</label>
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                      {form.imageUrl ? (
+                        <img src={form.imageUrl} alt="Product" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-300">
+                          <ImageIcon className="w-7 h-7" />
+                          <span className="text-[8px] mt-0.5 font-medium">NO IMAGE</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <button
+                        type="button"
+                        onClick={handleImageSelect}
+                        disabled={uploading}
+                        className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-[#D32F2F] hover:text-[#D32F2F] transition-colors disabled:opacity-50 w-full justify-center"
+                      >
+                        <Upload className="w-4 h-4" />
+                        {uploading ? 'Uploading...' : form.imageUrl ? 'Replace Image' : 'Upload Image'}
+                      </button>
+                      {form.imageUrl && (
+                        <button type="button" onClick={() => setForm(f => ({ ...f, imageUrl: '' }))} className="mt-1.5 text-xs text-red-500 hover:text-red-700 w-full text-center">
+                          Remove image
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
-                  <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
+                  <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825] h-20 resize-none" />
+                  <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825] h-20 resize-none" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
-                    <input type="number" step="0.01" min="0" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
+                    <input type="number" step="0.01" min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
-                    <input type="number" min="0" value={form.stockQuantity} onChange={e => setForm({...form, stockQuantity: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
+                    <input type="number" min="0" value={form.stockQuantity} onChange={e => setForm({ ...form, stockQuantity: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                  <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required>
+                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required>
                     <option value="">Select category</option>
-                    {['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains'].map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="flex gap-3 pt-2">
@@ -173,6 +308,7 @@ export function AdminProductsPage() {
           </div>
         )}
 
+        {/* ── Delete Confirm ───────────────────────────────────────────── */}
         {deleteConfirm && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
@@ -187,50 +323,143 @@ export function AdminProductsPage() {
           </div>
         )}
 
+        {/* ── Product Table ────────────────────────────────────────────── */}
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Product</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Category</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Price</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Stock</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">
+                  Category <span className="text-gray-300 font-normal normal-case">(click to edit)</span>
+                </th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  Price <span className="text-gray-300 font-normal normal-case">(click)</span>
+                </th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">
+                  Stock <span className="text-gray-300 font-normal normal-case">(click)</span>
+                </th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {products.map(product => (
-                <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                        {product.imageUrl ? (
-                          <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center"><Package className="w-4 h-4 text-gray-300" /></div>
-                        )}
+              {products.map(product => {
+                const isInlinePrice = inlineEdit?.id === product.id && inlineEdit.field === 'price';
+                const isInlineQty = inlineEdit?.id === product.id && inlineEdit.field === 'stockQuantity';
+                const isInlineCat = inlineEdit?.id === product.id && inlineEdit.field === 'category';
+
+                return (
+                  <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
+
+                    {/* Product name + image */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                          {product.imageUrl
+                            ? <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center"><Package className="w-4 h-4 text-gray-300" /></div>
+                          }
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[#3E2723] truncate">{product.name}</p>
+                          <p className="text-xs text-gray-400">#{product.id}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-[#3E2723] truncate">{product.name}</p>
-                        <p className="text-xs text-gray-400">#{product.id}</p>
+                    </td>
+
+                    {/* Category — inline edit */}
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      {isInlineCat ? (
+                        <select
+                          ref={el => { inlineRef.current = el; }}
+                          value={inlineEdit.value}
+                          onChange={e => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                          onBlur={saveInline}
+                          onKeyDown={e => { if (e.key === 'Enter') saveInline(); if (e.key === 'Escape') cancelInline(); }}
+                          className="text-sm border border-[#F9A825] rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#F9A825] bg-white"
+                        >
+                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      ) : (
+                        <button
+                          onClick={() => startInline(product.id, 'category', product.category)}
+                          className="text-sm text-gray-600 hover:text-[#D32F2F] hover:bg-red-50 px-2 py-1 rounded-lg transition-colors group flex items-center gap-1"
+                          title="Click to edit category"
+                        >
+                          {product.category}
+                          <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-40" />
+                        </button>
+                      )}
+                    </td>
+
+                    {/* Price — inline edit */}
+                    <td className="px-4 py-3 text-right">
+                      {isInlinePrice ? (
+                        <input
+                          ref={el => { inlineRef.current = el; }}
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={inlineEdit.value}
+                          onChange={e => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                          onBlur={saveInline}
+                          onKeyDown={e => { if (e.key === 'Enter') saveInline(); if (e.key === 'Escape') cancelInline(); }}
+                          className="w-20 text-sm text-right border border-[#F9A825] rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => startInline(product.id, 'price', String(product.price ?? 0))}
+                          className="text-sm font-medium text-[#3E2723] hover:text-[#D32F2F] hover:bg-red-50 px-2 py-1 rounded-lg transition-colors group inline-flex items-center gap-1"
+                          title="Click to edit price"
+                        >
+                          <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-40" />
+                          ${Number(product.price ?? 0).toFixed(2)}
+                        </button>
+                      )}
+                    </td>
+
+                    {/* Stock Qty — inline edit */}
+                    <td className="px-4 py-3 text-right hidden sm:table-cell">
+                      {isInlineQty ? (
+                        <input
+                          ref={el => { inlineRef.current = el; }}
+                          type="number"
+                          min="0"
+                          value={inlineEdit.value}
+                          onChange={e => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                          onBlur={saveInline}
+                          onKeyDown={e => { if (e.key === 'Enter') saveInline(); if (e.key === 'Escape') cancelInline(); }}
+                          className="w-16 text-sm text-right border border-[#F9A825] rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => startInline(product.id, 'stockQuantity', String(product.stockQuantity ?? 0))}
+                          className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors group inline-flex items-center gap-1 hover:opacity-80 ${
+                            (product.stockQuantity ?? 0) > 50 ? 'bg-green-50 text-green-700' :
+                            (product.stockQuantity ?? 0) > 0  ? 'bg-amber-50 text-amber-700' :
+                                                                'bg-red-50 text-red-700'
+                          }`}
+                          title="Click to edit stock"
+                        >
+                          <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-60" />
+                          {product.stockQuantity ?? 0}
+                        </button>
+                      )}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(product)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit product details & image">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setDeleteConfirm(product.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete product">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">{product.category}</td>
-                  <td className="px-4 py-3 text-sm text-right font-medium text-[#3E2723]">${product.price.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-sm text-right hidden sm:table-cell">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${product.stockQuantity > 50 ? 'bg-green-50 text-green-700' : product.stockQuantity > 0 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>
-                      {product.stockQuantity}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openEdit(product)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Pencil className="w-4 h-4" /></button>
-                      <button onClick={() => setDeleteConfirm(product.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
