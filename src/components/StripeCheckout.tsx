@@ -49,7 +49,10 @@ function CheckoutForm({ onSuccess, total }: { onSuccess: () => void; total: numb
 
     const { error: submitError } = await stripe.confirmPayment({
       elements,
-      confirmParams: { return_url: window.location.origin + '/checkout?success=true' },
+      // Use in-place confirmation so we can show the success UI
+      // instead of redirecting away from the app.
+      confirmParams: {},
+      redirect: 'if_required',
     });
 
     if (submitError) {

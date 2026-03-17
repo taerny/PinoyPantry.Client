@@ -4,13 +4,15 @@ import { useState } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { StripeCheckout } from '../components/StripeCheckout';
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
+
 interface CheckoutPageProps {
   onBack: () => void;
   onComplete: () => void;
 }
 
 export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
-  const { cartItems } = useCart();
+  const { cartItems, clearCart } = useCart();
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
@@ -25,7 +27,7 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
     zipCode: '',
   });
 
-  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('card');
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shipping = subtotal >= 100 ? 0 : 10;
@@ -38,7 +40,31 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
     });
   };
 
-  const handlePlaceOrder = () => {
+  async function applyInventoryAndComplete() {
+    try {
+      if (cartItems.length > 0) {
+        await fetch(`${API_URL}/api/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(
+            cartItems.map(i => ({
+              productId: typeof i.id === 'string' ? parseInt(i.id) || 0 : i.id,
+              name: i.name,
+              price: i.price,
+              quantity: i.quantity,
+            }))
+          ),
+        });
+      }
+    } finally {
+      const orderNum = 'PN' + Math.random().toString(36).substr(2, 9).toUpperCase();
+      setOrderNumber(orderNum);
+      setOrderComplete(true);
+      clearCart();
+    }
+  }
+
+  const handlePlaceOrder = async () => {
     // Validate form
     if (!shippingInfo.fullName || !shippingInfo.email || !shippingInfo.phone || 
         !shippingInfo.address || !shippingInfo.city || !shippingInfo.province || 
@@ -48,14 +74,8 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
     }
 
     setIsProcessing(true);
-
-    // Simulate order processing
-    setTimeout(() => {
-      const orderNum = 'PN' + Math.random().toString(36).substr(2, 9).toUpperCase();
-      setOrderNumber(orderNum);
-      setIsProcessing(false);
-      setOrderComplete(true);
-    }, 2000);
+    await applyInventoryAndComplete();
+    setIsProcessing(false);
   };
 
   if (orderComplete) {
@@ -66,9 +86,13 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
             <div className="bg-white rounded-lg shadow-md p-8 text-center">
               <div className="mb-6">
                 <CheckCircle className="w-24 h-24 text-green-600 mx-auto mb-4" />
-                <h1 className="mb-2 text-green-600">Order Placed Successfully!</h1>
+                <h1 className="mb-2 text-green-600">
+                  {paymentMethod === 'card' ? 'Payment Successful!' : 'Order Placed Successfully!'}
+                </h1>
                 <p className="text-muted-foreground">
-                  Thank you for your order. We'll send you a confirmation email shortly.
+                  {paymentMethod === 'card'
+                    ? "Your card has been charged securely via Stripe. We'll send you a confirmation email shortly."
+                    : "Thank you for your order. We'll send you a confirmation email shortly."}
                 </p>
               </div>
 
@@ -223,52 +247,7 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="mb-6">Payment Method</h2>
               <div className="space-y-3">
-                <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-[#F9A825] transition-colors">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="cod"
-                    checked={paymentMethod === 'cod'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-5 h-5 text-[#D32F2F]"
-                  />
-                  <div className="flex-1">
-                    <p>Cash on Delivery</p>
-                    <p className="text-sm text-muted-foreground">Pay when you receive your order</p>
-                  </div>
-                </label>
-
-                <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-[#F9A825] transition-colors">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="gcash"
-                    checked={paymentMethod === 'gcash'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-5 h-5 text-[#D32F2F]"
-                  />
-                  <div className="flex-1">
-                    <p>GCash</p>
-                    <p className="text-sm text-muted-foreground">Pay securely with GCash</p>
-                  </div>
-                </label>
-
-                <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-[#F9A825] transition-colors">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="paymaya"
-                    checked={paymentMethod === 'paymaya'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-5 h-5 text-[#D32F2F]"
-                  />
-                  <div className="flex-1">
-                    <p>PayMaya</p>
-                    <p className="text-sm text-muted-foreground">Pay securely with PayMaya</p>
-                  </div>
-                </label>
-
-                <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-[#F9A825] transition-colors">
+                <label className="flex items-center gap-3 p-4 border-2 border-[#F9A825] rounded-lg cursor-pointer bg-yellow-50">
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -279,7 +258,9 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
                   />
                   <div className="flex-1">
                     <p>Credit/Debit Card</p>
-                    <p className="text-sm text-muted-foreground">Visa, Mastercard, JCB</p>
+                    <p className="text-sm text-muted-foreground">
+                      Pay securely with Stripe using Visa, Mastercard, etc.
+                    </p>
                   </div>
                 </label>
               </div>
@@ -340,9 +321,7 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
                     items={cartItems.map(i => ({ id: typeof i.id === 'string' ? parseInt(i.id) || 0 : i.id, name: i.name, price: i.price, quantity: i.quantity }))}
                     total={total}
                     onSuccess={() => {
-                      const orderNum = 'PN' + Math.random().toString(36).substr(2, 9).toUpperCase();
-                      setOrderNumber(orderNum);
-                      setOrderComplete(true);
+                      applyInventoryAndComplete();
                     }}
                     onCancel={() => setPaymentMethod('')}
                   />
