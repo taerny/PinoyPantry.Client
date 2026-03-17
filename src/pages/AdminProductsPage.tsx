@@ -36,6 +36,7 @@ export function AdminProductsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [clearAllConfirm, setClearAllConfirm] = useState(false);
 
   // Inline editing state
   const [inlineEdit, setInlineEdit] = useState<InlineEdit | null>(null);
@@ -148,6 +149,24 @@ export function AdminProductsPage() {
     }
   }
 
+  // ── Clear all products ───────────────────────────────────────────────────────
+  async function handleClearAll() {
+    if (!user) return;
+    try {
+      const res = await fetch(`${API_URL}/api/products/all`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${user.token}` },
+      });
+      if (!res.ok) throw new Error('Failed to clear products.');
+      const data = await res.json();
+      setMessage({ type: 'success', text: data.message });
+      setClearAllConfirm(false);
+      fetchProducts();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to clear products.' });
+    }
+  }
+
   // ── Inline edit helpers ──────────────────────────────────────────────────────
   function startInline(id: number, field: InlineField, value: string) {
     setInlineEdit({ id, field, value });
@@ -218,9 +237,18 @@ export function AdminProductsPage() {
             <h2 className="text-xl font-bold text-[#3E2723]">Product Management</h2>
             <p className="text-xs text-gray-400 mt-0.5">Click price, stock or category to edit inline</p>
           </div>
-          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 bg-[#D32F2F] text-white rounded-xl text-sm font-medium hover:bg-[#B71C1C] transition-colors shadow-sm">
-            <Plus className="w-4 h-4" /> Add Product
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setClearAllConfirm(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-600 rounded-xl text-sm font-medium hover:border-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+              title="Delete all products from the table"
+            >
+              <Trash2 className="w-4 h-4" /> Clear All
+            </button>
+            <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 bg-[#D32F2F] text-white rounded-xl text-sm font-medium hover:bg-[#B71C1C] transition-colors shadow-sm">
+              <Plus className="w-4 h-4" /> Add Product
+            </button>
+          </div>
         </div>
 
         {message && (
@@ -318,6 +346,22 @@ export function AdminProductsPage() {
               <div className="flex gap-3">
                 <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 border rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
                 <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700">Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Clear All Confirm ────────────────────────────────────────── */}
+        {clearAllConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+              <Trash2 className="w-12 h-12 text-red-500 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-[#3E2723] mb-2">Clear All Products?</h3>
+              <p className="text-sm text-gray-500 mb-1">This will permanently delete <strong>all {products.length} products</strong> from the database.</p>
+              <p className="text-xs text-red-500 mb-5">This action cannot be undone.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setClearAllConfirm(false)} className="flex-1 px-4 py-2.5 border rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button onClick={handleClearAll} className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700">Yes, Clear All</button>
               </div>
             </div>
           </div>
