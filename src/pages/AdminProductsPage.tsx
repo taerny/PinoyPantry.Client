@@ -5,7 +5,7 @@ import { AdminLayout } from '../components/AdminLayout';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
-const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains'];
+const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Sweets'];
 
 interface Product {
   id: number;
@@ -239,6 +239,7 @@ export function AdminProductsPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
+              disabled
               onClick={() => setClearAllConfirm(true)}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-600 rounded-xl text-sm font-medium hover:border-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
               title="Delete all products from the table"
