@@ -131,4 +131,12 @@ export const ApiProductService = {
     const result = await this.getProducts({ search: query });
     return result.products;
   },
+
+  async getCategoryCounts(): Promise<Record<string, number>> {
+    const response = await fetch(`${API_URL}/api/products/category-counts`);
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+    return response.json();
+  },
 };

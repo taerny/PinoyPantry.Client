@@ -20,11 +20,42 @@ const USE_API = !!import.meta.env.VITE_API_URL;
 
 export class ProductService {
   /**
-   * Get all categories
+   * Get all categories with live item counts from the API.
+   * Category metadata (icons, slugs, descriptions) stay in mock data;
+   * only the itemCount is replaced with the real DB value.
    */
   static async getCategories(): Promise<Category[]> {
-    // API doesn't have a /categories endpoint yet — use mock categories
-    return mockCategories;
+    if (!USE_API) return mockCategories;
+
+    try {
+      const counts = await ApiProductService.getCategoryCounts();
+
+      return mockCategories.map((cat) => {
+        if (cat.slug === 'all-products') {
+          const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+          return { ...cat, itemCount: total };
+        }
+
+        // SLUG_TO_CATEGORY maps frontend slug → DB category name
+        const SLUG_TO_CATEGORY: Record<string, string> = {
+          'canned-goods':    'Canned Goods',
+          'snacks-chips':    'Snacks',
+          'instant-noodles': 'Noodles',
+          'condiments':      'Condiments',
+          'beverages':       'Beverages',
+          'sweets':          'Sweets',
+          'soups-mixes':     'Soups & Mixes',
+          'dairy':           'Dairy',
+        };
+
+        const dbCategory = SLUG_TO_CATEGORY[cat.slug];
+        const liveCount = dbCategory !== undefined ? (counts[dbCategory] ?? 0) : 0;
+        return { ...cat, itemCount: liveCount };
+      });
+    } catch {
+      // Fall back to mock data if the API call fails
+      return mockCategories;
+    }
   }
 
   /**
