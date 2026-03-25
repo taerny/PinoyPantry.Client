@@ -66,9 +66,11 @@ export function Footer() {
                 <Phone className="w-5 h-5 flex-shrink-0" />
                 <span>+64 123 456 7890</span>
               </li>
-              <li className="flex items-center gap-2 text-white/80">
-                <Mail className="w-5 h-5 flex-shrink-0" />
-                <span>hello@pinoypantry.com</span>
+              <li className="flex items-center gap-2">
+                <Mail className="w-5 h-5 flex-shrink-0 text-white/80" />
+                <a href="/contact" className="text-[#F9A825] hover:underline font-medium">
+                  Send us a message
+                </a>
               </li>
             </ul>
           </div>
@@ -196,7 +198,7 @@ export function Footer() {
 
         {/* Bottom Bar */}
         <div className="border-t border-white/20 mt-8 pt-8 text-center text-white/60">
-          <p>&copy; 2024 PinoyPantry. All rights reserved. Pasabuy Na Ba!</p>
+          <p>&copy; 2026 PinoyPantry. All rights reserved. Pasabuy Na Ba!</p>
         </div>
       </div>
     </footer>

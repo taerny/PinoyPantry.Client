@@ -16,6 +16,7 @@ import { AdminUploadPage } from './pages/AdminUploadPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminProductsPage } from './pages/AdminProductsPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
+import { ContactPage } from './pages/ContactPage';
 import { CartProvider, useCart } from './contexts/CartContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { useCategories } from './hooks/useCategories';
@@ -105,6 +106,7 @@ function AppContent() {
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="/admin/products" element={<AdminProductsPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
+          <Route path="/contact" element={<ContactPage />} />
         </Routes>
       </main>
 
