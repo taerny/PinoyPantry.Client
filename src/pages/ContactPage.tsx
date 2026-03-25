@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, MapPin, Phone, Send, CheckCircle } from 'lucide-react';
+import { Mail, MapPin, Send, CheckCircle } from 'lucide-react';
 
 export function ContactPage() {
   const [formData, setFormData] = useState({
@@ -42,9 +42,9 @@ export function ContactPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFF8E1]">
+    <div className="min-h-screen bg-gradient-to-br from-[#3E2723] via-[#4E342E] to-[#3E2723]">
       {/* Hero */}
-      <div className="bg-[#3E2723] text-white py-16">
+      <div className="pt-16 pb-10 text-white">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl font-bold mb-3">Contact Us</h1>
           <p className="text-white/70 text-lg max-w-xl mx-auto">
@@ -53,44 +53,34 @@ export function ContactPage() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-16">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <div className="container mx-auto px-4 pb-20">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
 
           {/* Info cards */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl p-6 shadow-sm flex items-start gap-4">
+          <div className="space-y-5">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 flex items-start gap-4">
               <div className="w-11 h-11 bg-[#F9A825]/20 rounded-full flex items-center justify-center flex-shrink-0">
                 <MapPin className="w-5 h-5 text-[#F9A825]" />
               </div>
               <div>
-                <p className="font-semibold text-[#3E2723]">Location</p>
-                <p className="text-gray-500 text-sm mt-1">Dunedin, New Zealand</p>
+                <p className="font-semibold text-white">Location</p>
+                <p className="text-white/60 text-sm mt-1">Dunedin, New Zealand</p>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 shadow-sm flex items-start gap-4">
-              <div className="w-11 h-11 bg-[#F9A825]/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <Phone className="w-5 h-5 text-[#F9A825]" />
-              </div>
-              <div>
-                <p className="font-semibold text-[#3E2723]">Phone</p>
-                <p className="text-gray-500 text-sm mt-1">+64 123 456 7890</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-6 shadow-sm flex items-start gap-4">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 flex items-start gap-4">
               <div className="w-11 h-11 bg-[#F9A825]/20 rounded-full flex items-center justify-center flex-shrink-0">
                 <Mail className="w-5 h-5 text-[#F9A825]" />
               </div>
               <div>
-                <p className="font-semibold text-[#3E2723]">Email</p>
-                <p className="text-gray-500 text-sm mt-1">We'll reply as soon as possible</p>
+                <p className="font-semibold text-white">Email</p>
+                <p className="text-white/60 text-sm mt-1">We'll reply as soon as possible</p>
               </div>
             </div>
           </div>
 
           {/* Form */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm p-8">
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-xl p-8">
             {submitted ? (
               <div className="flex flex-col items-center justify-center h-full py-12 text-center gap-4">
                 <CheckCircle className="w-16 h-16 text-green-500" />

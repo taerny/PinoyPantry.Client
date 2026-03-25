@@ -1,4 +1,4 @@
-import { Facebook, Instagram, Twitter, Mail, Phone, MapPin } from 'lucide-react';
+import { Facebook, Instagram, Twitter, Mail, MapPin } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -18,15 +18,15 @@ export function Footer() {
               Your one-stop shop for authentic Filipino foods. Bringing the taste of home to you!
             </p>
             <div className="flex gap-3">
-              <a href="#" className="w-10 h-10 bg-[#4A332E] rounded-full flex items-center justify-center hover:bg-[#F9A825] hover:text-[#3E2723] transition-colors">
+              <span title="Coming soon" className="w-10 h-10 bg-[#4A332E] rounded-full flex items-center justify-center opacity-40 cursor-not-allowed">
                 <Facebook className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 bg-[#4A332E] rounded-full flex items-center justify-center hover:bg-[#F9A825] hover:text-[#3E2723] transition-colors">
+              </span>
+              <span title="Coming soon" className="w-10 h-10 bg-[#4A332E] rounded-full flex items-center justify-center opacity-40 cursor-not-allowed">
                 <Instagram className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 bg-[#4A332E] rounded-full flex items-center justify-center hover:bg-[#F9A825] hover:text-[#3E2723] transition-colors">
+              </span>
+              <span title="Coming soon" className="w-10 h-10 bg-[#4A332E] rounded-full flex items-center justify-center opacity-40 cursor-not-allowed">
                 <Twitter className="w-5 h-5" />
-              </a>
+              </span>
             </div>
           </div>
 
@@ -34,11 +34,11 @@ export function Footer() {
           <div>
             <h4 className="mb-4">Quick Links</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="text-white/80 hover:text-[#F9A825] transition-colors">About Us</a></li>
-              <li><a href="#" className="text-white/80 hover:text-[#F9A825] transition-colors">Shop All</a></li>
-              <li><a href="#" className="text-white/80 hover:text-[#F9A825] transition-colors">Deals & Promos</a></li>
-              <li><a href="#" className="text-white/80 hover:text-[#F9A825] transition-colors">Track Order</a></li>
-              <li><a href="#" className="text-white/80 hover:text-[#F9A825] transition-colors">FAQs</a></li>
+              <li><span className="text-white/30 cursor-not-allowed text-sm" title="Coming soon">About Us</span></li>
+              <li><a href="/category/all-products" className="text-white/80 hover:text-[#F9A825] transition-colors text-sm">Shop All</a></li>
+              <li><span className="text-white/30 cursor-not-allowed text-sm" title="Coming soon">Deals &amp; Promos</span></li>
+              <li><span className="text-white/30 cursor-not-allowed text-sm" title="Coming soon">Track Order</span></li>
+              <li><span className="text-white/30 cursor-not-allowed text-sm" title="Coming soon">FAQs</span></li>
             </ul>
           </div>
 
@@ -46,11 +46,11 @@ export function Footer() {
           <div>
             <h4 className="mb-4">Categories</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="text-white/80 hover:text-[#F9A825] transition-colors">Canned Goods</a></li>
-              <li><a href="#" className="text-white/80 hover:text-[#F9A825] transition-colors">Snacks & Chips</a></li>
-              <li><a href="#" className="text-white/80 hover:text-[#F9A825] transition-colors">Instant Noodles</a></li>
-              <li><a href="#" className="text-white/80 hover:text-[#F9A825] transition-colors">Beverages</a></li>
-              <li><a href="#" className="text-white/80 hover:text-[#F9A825] transition-colors">Condiments</a></li>
+              <li><a href="/category/canned-goods" className="text-white/80 hover:text-[#F9A825] transition-colors text-sm">Canned Goods</a></li>
+              <li><a href="/category/snacks-chips" className="text-white/80 hover:text-[#F9A825] transition-colors text-sm">Snacks &amp; Chips</a></li>
+              <li><a href="/category/instant-noodles" className="text-white/80 hover:text-[#F9A825] transition-colors text-sm">Instant Noodles</a></li>
+              <li><a href="/category/beverages" className="text-white/80 hover:text-[#F9A825] transition-colors text-sm">Beverages</a></li>
+              <li><a href="/category/condiments" className="text-white/80 hover:text-[#F9A825] transition-colors text-sm">Condiments</a></li>
             </ul>
           </div>
 
@@ -61,10 +61,6 @@ export function Footer() {
               <li className="flex items-start gap-2 text-white/80">
                 <MapPin className="w-5 h-5 mt-0.5 flex-shrink-0" />
                 <span>Dunedin, New Zealand</span>
-              </li>
-              <li className="flex items-center gap-2 text-white/80">
-                <Phone className="w-5 h-5 flex-shrink-0" />
-                <span>+64 123 456 7890</span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-5 h-5 flex-shrink-0 text-white/80" />

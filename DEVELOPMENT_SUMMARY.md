@@ -1763,3 +1763,386 @@ This document covered the complete development journey of PinoyPantry e-commerce
 **Happy Coding! 🚀**
 
 *Last Updated: January 18, 2026*
+
+---
+
+---
+
+# Session Log — March 25, 2026
+
+**Topics Covered:**
+1. Azure SQL Database auto-paused — diagnosis and fix
+2. Switching Azure SQL to the Basic (paid) tier
+3. Footer copyright year update
+4. Replacing exposed email address with a Contact Us form page
+
+---
+
+## Issue 1 — Azure SQL Database Auto-Paused
+
+### What happened
+
+The live website at `https://gentle-dune-0c69a8700.6.azurestaticapps.net` stopped showing products after approximately 2 weeks of inactivity. The API at `https://pinoypantry-api-f0a8hbfwc6fwdfbg.australiaeast-01.azurewebsites.net` was returning `HTTP 500.30 - ASP.NET Core app failed to start`.
+
+The root cause was the **Azure SQL Database was paused** — not a code problem.
+
+### Why it paused
+
+The database was on the **Azure SQL Free Offer (Serverless tier)**. This tier has two separate pause triggers:
+
+| Pause Type | Cause | Default Setting |
+|---|---|---|
+| **Inactivity auto-pause** | No DB connections for a set time | 1 hour of idle |
+| **Free credit exhaustion** | Monthly vCore seconds used up | 100,000 vCore-seconds/month |
+
+After 2 weeks of no traffic, **both** conditions were met:
+- Auto-pause fired from inactivity
+- The monthly free vCore credit counter showed **0 vCore seconds remaining**
+
+When free credits are exhausted, the DB pauses and **will not resume** until either:
+- The next calendar month (credits reset)
+- You remove the free offer and switch to a paid tier
+
+### How we diagnosed it
+
+1. Opened the Azure Portal → `pinoypantry-db` → Overview
+2. **Status: Paused** was visible
+3. In **Compute + storage**, the banner showed: *"Free offer limits reached — 0 vCore seconds remaining"*
+4. API response body confirmed: `HTTP Error 500.30 - ASP.NET Core app failed to start` (the app could not connect to the DB on startup)
+
+### What Serverless actually means
+
+The **Serverless compute tier** in Azure SQL:
+- **Scales compute automatically** (0.5 to N vCores based on demand)
+- **Billed per vCore-second** of actual CPU/memory used
+- **Auto-pauses** after inactivity to save cost
+- **Auto-resumes** on the next connection (first request after pause is slow — ~30–60 sec cold start)
+- Has a **free offer** that provides 100,000 free vCore-seconds per month; once exhausted → DB pauses
+
+The **Free Offer** is great for demos/learning but not reliable for a site you want always available.
+
+---
+
+## Fix — Switch to Azure SQL Basic Tier
+
+### What is the Basic tier
+
+The **Basic (DTU-based)** tier is a simple, flat-rate always-on option:
+
+| Property | Value |
+|---|---|
+| Model | DTU (Database Transaction Units) — fixed performance |
+| DTUs | 5 |
+| Max storage | 2 GB |
+| Price | ~$5.39 USD/month |
+| Auto-pause | **Never** — always on 24/7 |
+| Free credits | None needed — flat rate |
+| Cold starts | **None** — always warm |
+
+This is ideal for a low-traffic portfolio/demo site.
+
+### Step-by-step: How to switch
+
+1. Azure Portal → search **SQL databases** → click **pinoypantry-db**
+2. Left menu → **Settings** → **Compute + storage**
+3. Toggle **"Free database offer"** → **Off** (turns it to "Not Applied")
+   - This reveals the full tier selection dropdown
+4. In the **Service tier** dropdown → select **Basic (For less demanding workloads)**
+5. Verify the **Cost summary** panel shows ~$5.39 USD/month
+6. Scroll down → click **Apply**
+7. Wait 1–2 minutes for **"Scaling in progress..."** to finish
+8. Go to **Overview** → confirm **Status: Online** and **Pricing tier: Basic**
+
+### How to confirm the change applied
+
+Go to `pinoypantry-db` → **Activity log** (left menu).
+You should see two entries like:
+
+```
+Operation name          Status      Time
+Update SQL database     Succeeded   4 minutes ago
+Update SQL database     Succeeded   6 minutes ago
+```
+
+Both marked **Succeeded** = the tier change was applied and billing has started.
+
+### Why the API still showed 500 after the DB came back
+
+Even after the DB is online, the **App Service** (API host) can stay in a failed-to-start state because it crashed during startup when the DB was unreachable. It needs a **Restart** to try connecting again.
+
+To restart the API:
+1. Azure Portal → search **App Services** → click **pinoypantry-api**
+2. Top toolbar → click **Restart**
+3. Wait ~60 seconds
+4. Test: `https://pinoypantry-api-f0a8hbfwc6fwdfbg.australiaeast-01.azurewebsites.net/api/products`
+
+### Key learning: Two-layer architecture
+
+```
+Browser
+  ↓
+Azure Static Web App (frontend — always fast, CDN)
+  ↓  (API calls)
+Azure App Service (API — .NET 8 backend)
+  ↓  (SQL queries)
+Azure SQL Database (data)
+```
+
+If any layer fails, the layers above it also fail. In this case:
+- DB paused → API crashes on startup → website shows no products
+
+---
+
+## Fix — How to avoid this in future
+
+| Setting | Where | What to set |
+|---|---|---|
+| Tier | Compute + storage | Basic (never pauses) |
+| Auto-pause (if back on Serverless) | Compute + storage → Auto-pause delay | Disabled |
+| Overage billing (if on free offer) | Compute + storage → Behavior when limit reached | "Continue using database for additional charges" |
+
+With Basic tier, none of the above are needed — it is always running.
+
+---
+
+## Code Change 1 — Footer Copyright Year
+
+**File:** `src/components/Footer.tsx`
+
+**Change:** Updated copyright year from 2024 to 2026.
+
+```tsx
+// Before
+<p>&copy; 2024 PinoyPantry. All rights reserved. Pasabuy Na Ba!</p>
+
+// After
+<p>&copy; 2026 PinoyPantry. All rights reserved. Pasabuy Na Ba!</p>
+```
+
+**Why this matters:**
+- Outdated copyright years make a site look unmaintained
+- Visitors and potential employers/clients notice this
+- Best practice: use `new Date().getFullYear()` to keep it auto-updating:
+
+```tsx
+<p>&copy; {new Date().getFullYear()} PinoyPantry. All rights reserved. Pasabuy Na Ba!</p>
+```
+
+---
+
+## Code Change 2 — Remove Exposed Email Address from Footer
+
+**File:** `src/components/Footer.tsx`
+
+**Problem:**
+Showing a real email address directly in HTML is bad practice because:
+- Web scrapers and spam bots harvest email addresses from HTML
+- You get more spam
+- It looks unprofessional vs a proper contact form
+- No way to filter/validate the message before it reaches your inbox
+
+**Before:**
+```tsx
+<li className="flex items-center gap-2 text-white/80">
+  <Mail className="w-5 h-5 flex-shrink-0" />
+  <span>hello@pinoypantry.com</span>
+</li>
+```
+
+**After:**
+```tsx
+<li className="flex items-center gap-2">
+  <Mail className="w-5 h-5 flex-shrink-0 text-white/80" />
+  <a href="/contact" className="text-[#F9A825] hover:underline font-medium">
+    Send us a message
+  </a>
+</li>
+```
+
+The mail icon stays for visual context, but the email address is replaced by a link to the new `/contact` page.
+
+---
+
+## Code Change 3 — New Contact Page with Form
+
+**File:** `src/pages/ContactPage.tsx` (new file)
+
+### Why a form instead of an email link
+
+| Approach | Pros | Cons |
+|---|---|---|
+| Show email address | Simple | Spam bots harvest it; no structure |
+| `mailto:` link | Opens mail client | Email address visible in HTML; not everyone has mail client set up |
+| Contact form | Clean UX; structured data; email hidden | Needs a form handler service |
+
+### Page structure
+
+```
+ContactPage
+├── Hero banner (brown background, page title)
+└── Two-column layout
+    ├── Left: Info cards (Location, Phone, Email note)
+    └── Right: Contact form
+        ├── Full Name + Email (side by side)
+        ├── Subject (dropdown with preset options)
+        ├── Message (textarea)
+        ├── Error message (if submit fails)
+        ├── Submit button (with loading state)
+        └── Success screen (shown after submit)
+```
+
+### Form state management
+
+```tsx
+const [formData, setFormData] = useState({
+  name: '',
+  email: '',
+  subject: '',
+  message: '',
+});
+const [submitted, setSubmitted] = useState(false);
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState('');
+```
+
+**Three states:**
+- `loading` — submit button shows "Sending..." and is disabled
+- `error` — shows red error message below form
+- `submitted` — replaces entire form with a success screen
+
+### How the form submission works (Formspree)
+
+The form posts to [Formspree](https://formspree.io) — a free third-party service that:
+1. Receives the form POST
+2. Forwards it to your email inbox
+3. Returns a 200 OK response
+
+**Why Formspree instead of building a backend endpoint?**
+- No backend code needed — works with any static frontend
+- Free tier: 50 submissions/month (more than enough for a portfolio site)
+- Takes 2 minutes to set up
+- No SMTP/email server configuration
+
+**Setup steps for Formspree:**
+1. Go to [formspree.io](https://formspree.io) → Sign up (free)
+2. Click **+ New Form** → name it "PinoyPantry Contact"
+3. Copy your form ID (looks like `xabcdefg`)
+4. In `ContactPage.tsx`, replace `YOUR_FORM_ID`:
+
+```tsx
+// Before
+const response = await fetch('https://formspree.io/f/YOUR_FORM_ID', {
+
+// After (example)
+const response = await fetch('https://formspree.io/f/xabcdefg', {
+```
+
+5. Push the change → deploy → done
+
+### Submit handler pattern
+
+```tsx
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();      // Prevent default HTML form POST/page reload
+  setLoading(true);
+  setError('');
+
+  try {
+    const response = await fetch('https://formspree.io/f/YOUR_FORM_ID', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData),
+    });
+
+    if (response.ok) {
+      setSubmitted(true);                                    // Show success screen
+      setFormData({ name: '', email: '', subject: '', message: '' }); // Reset form
+    } else {
+      setError('Something went wrong. Please try again.');  // Show inline error
+    }
+  } catch {
+    setError('Unable to send message. Please try again later.'); // Network error
+  } finally {
+    setLoading(false);   // Always re-enable submit button
+  }
+};
+```
+
+**Key concepts used:**
+- `e.preventDefault()` — stops the browser's default form submit (which would reload the page)
+- `try/catch/finally` — handles both server errors (`response.ok === false`) and network errors (fetch throws)
+- `finally` — always runs, ensures `loading` is reset even if an error occurs
+
+### Styling approach
+
+The page follows PinoyPantry's existing design system:
+- `bg-[#3E2723]` — dark brown (brand primary, used in header/footer)
+- `text-[#F9A825]` / `bg-[#F9A825]` — amber/gold (brand accent)
+- `focus:ring-[#F9A825]` — focus ring matches brand color
+- `rounded-xl`, `shadow-sm` — consistent border radius and shadow style
+
+---
+
+## Code Change 4 — Route Added in App.tsx
+
+**File:** `src/App.tsx`
+
+Two lines added:
+
+```tsx
+// 1. Import at top of file
+import { ContactPage } from './pages/ContactPage';
+
+// 2. Route inside <Routes>
+<Route path="/contact" element={<ContactPage />} />
+```
+
+**How React Router routing works (recap):**
+
+```
+User visits /contact
+  ↓
+BrowserRouter intercepts the URL (no full page reload)
+  ↓
+Routes component checks each <Route path="..."> in order
+  ↓
+Finds path="/contact" → renders <ContactPage />
+  ↓
+Header and Footer still render (they're outside <Routes>)
+```
+
+The `/contact` route automatically gets the site's Header and Footer because those are rendered unconditionally outside the `<Routes>` block (except for admin/login pages which are excluded via the `isLoginPage`/`isAdminPage` checks).
+
+---
+
+## GitHub Repositories
+
+| Repo | URL | What it contains |
+|---|---|---|
+| Frontend | [github.com/taerny/PinoyPantry.Client](https://github.com/taerny/PinoyPantry.Client) | React + Vite + TypeScript |
+| Backend | [github.com/taerny/PinoyPantry.API](https://github.com/taerny/PinoyPantry.API) | .NET 8 Web API |
+
+### Auto-deploy workflow
+
+Every `git push` to `main` triggers GitHub Actions:
+
+```
+git push origin main
+  ↓
+GitHub Actions reads .github/workflows/azure-static-web-apps-gentle-dune-0c69a8700.yml
+  ↓
+Runs: npm install → npm run build → uploads /build to Azure Static Web App
+  ↓
+Live site updates at gentle-dune-0c69a8700.6.azurestaticapps.net
+```
+
+**How to monitor a deploy:**
+1. Go to [github.com/taerny/PinoyPantry.Client/actions](https://github.com/taerny/PinoyPantry.Client/actions)
+2. Click the latest workflow run
+3. Watch the steps expand in real time
+4. Green checkmark = deployed successfully
+5. Red X = build or deploy failed (click step to see error)
+
+---
+
+*Last Updated: March 25, 2026*
