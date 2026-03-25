@@ -2146,3 +2146,421 @@ Live site updates at gentle-dune-0c69a8700.6.azurestaticapps.net
 ---
 
 *Last Updated: March 25, 2026*
+
+---
+
+---
+
+# Session Log — March 25, 2026 (Part 2)
+
+**Topic:** Implementing the Contact Form using the own .NET API + Gmail SMTP
+
+---
+
+## Why own API instead of Formspree
+
+The user correctly pointed out that using a third-party service (Formspree) to receive sensitive customer messages is unnecessary because PinoyPantry already has its own .NET API on Azure. Using the own API means:
+
+- No dependency on an external service
+- No free-tier submission limits
+- Full control over how the email is formatted and sent
+- All logic stays inside the project
+
+The only external dependency needed is a **Gmail account** (as the SMTP mail server), which is free and reliable.
+
+---
+
+## What is SMTP?
+
+**SMTP = Simple Mail Transfer Protocol**
+
+It is the standard protocol (set of rules) that computers use to send emails across the internet.
+
+```
+Your API  →  SMTP Server (Gmail)  →  Recipient's Inbox
+```
+
+When your API calls `SmtpClient.SendMailAsync()`, it connects to Gmail's SMTP server at `smtp.gmail.com:587`, authenticates with your Gmail credentials, and instructs Gmail to deliver the email to the recipient.
+
+**Why Gmail SMTP?**
+- Free — included with any Google account
+- Reliable — Google's mail infrastructure
+- Simple setup — just need email + App Password
+- 500 emails/day limit (more than enough for a contact form)
+
+---
+
+## Files Created / Modified
+
+### 1. `DTOs/ContactDto.cs` — New File
+
+**What is a DTO?**
+DTO = Data Transfer Object. It defines the *shape* of data that flows into or out of the API. It is not a database model — it just represents what the API accepts or returns.
+
+```csharp
+namespace PinoyPantry.API.DTOs;
+
+public class ContactRequestDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Subject { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+}
+```
+
+**Why `= string.Empty` instead of leaving it null?**
+- Prevents null reference warnings (C# 8+ nullable reference types)
+- Guarantees the property is always a string, never null
+- Safer to validate: `string.IsNullOrWhiteSpace(dto.Name)` instead of checking null first
+
+**How this maps to the React form:**
+The React form sends this JSON body:
+```json
+{
+  "name": "Juan dela Cruz",
+  "email": "juan@example.com",
+  "subject": "Order Enquiry",
+  "message": "Is the Chicharon available?"
+}
+```
+ASP.NET Core automatically deserializes (converts) this JSON into a `ContactRequestDto` object — matching property names by convention (case-insensitive).
+
+---
+
+### 2. `Services/IEmailService.cs` — New File
+
+**What is an interface?**
+An interface is a *contract*. It defines what a service *must* do, without defining *how* it does it.
+
+```csharp
+using PinoyPantry.API.DTOs;
+
+namespace PinoyPantry.API.Services;
+
+public interface IEmailService
+{
+    Task SendContactEmailAsync(ContactRequestDto dto);
+}
+```
+
+**Why use an interface at all?**
+
+```
+ContactController depends on IEmailService (interface)
+                                  ↑
+                          EmailService (real implementation)
+```
+
+- The controller never knows about `EmailService` directly — only the interface
+- If you ever switch from Gmail to SendGrid or Mailgun, you create a new class that implements `IEmailService`, register it, and nothing else changes
+- You can also create a `MockEmailService` for testing that just logs to console instead of really sending
+
+This is called the **Dependency Inversion Principle** (the D in SOLID) — depend on abstractions, not concrete implementations.
+
+---
+
+### 3. `Services/EmailService.cs` — New File
+
+This is the real implementation that actually sends the email using `System.Net.Mail` (built into .NET, no extra packages).
+
+```csharp
+using System.Net;
+using System.Net.Mail;
+using PinoyPantry.API.DTOs;
+
+namespace PinoyPantry.API.Services;
+
+public class EmailService : IEmailService
+{
+    private readonly IConfiguration _config;
+
+    public EmailService(IConfiguration config)
+    {
+        _config = config;
+    }
+
+    public async Task SendContactEmailAsync(ContactRequestDto dto)
+    {
+        var smtpHost = _config["Email:SmtpHost"]!;
+        var smtpPort = int.Parse(_config["Email:SmtpPort"]!);
+        var smtpUser = _config["Email:SmtpUser"]!;
+        var smtpPass = _config["Email:SmtpPass"]!;
+        var toAddress = _config["Email:ToAddress"]!;
+
+        using var client = new SmtpClient(smtpHost, smtpPort)
+        {
+            Credentials = new NetworkCredential(smtpUser, smtpPass),
+            EnableSsl = true
+        };
+
+        var mail = new MailMessage
+        {
+            From = new MailAddress(smtpUser, "PinoyPantry Website"),
+            Subject = $"[PinoyPantry Contact] {dto.Subject} — from {dto.Name}",
+            Body = $"""
+                New message from your PinoyPantry contact form:
+                Name:    {dto.Name}
+                Email:   {dto.Email}
+                Subject: {dto.Subject}
+                Message: {dto.Message}
+                """,
+            IsBodyHtml = false
+        };
+
+        mail.To.Add(toAddress);
+        mail.ReplyToList.Add(new MailAddress(dto.Email, dto.Name));
+
+        await client.SendMailAsync(mail);
+    }
+}
+```
+
+**Line-by-line explanation:**
+
+| Code | What it does |
+|---|---|
+| `IConfiguration _config` | Reads values from `appsettings.json` or Azure environment variables |
+| `_config["Email:SmtpHost"]` | Reads the `SmtpHost` key inside the `Email` section |
+| `!` (null-forgiving operator) | Tells the compiler "trust me, this won't be null" — we know it's set in config |
+| `new SmtpClient(host, port)` | Creates an SMTP connection to Gmail's server |
+| `EnableSsl = true` | Uses TLS encryption (required by Gmail on port 587) |
+| `NetworkCredential(user, pass)` | Your Gmail login credentials |
+| `new MailMessage { ... }` | Constructs the email |
+| `From` | The "From:" field — your Gmail address (Gmail requires this to match your login) |
+| `Subject` | Email subject line — prefixed with `[PinoyPantry Contact]` so you can filter it |
+| `IsBodyHtml = false` | Plain text email (simpler; no HTML needed for internal notifications) |
+| `mail.To.Add(toAddress)` | Who receives the email (your inbox) |
+| `ReplyToList.Add(dto.Email)` | Sets Reply-To to the customer's email — so when you hit Reply in Gmail, it goes to the customer, not yourself |
+| `await client.SendMailAsync(mail)` | Sends asynchronously (non-blocking) |
+
+**`using var client`:**
+The `using` keyword ensures `SmtpClient` is properly disposed (connection closed, memory freed) after `SendMailAsync` completes — even if an exception is thrown. This is the C# equivalent of try/finally cleanup.
+
+---
+
+### 4. `Controllers/ContactController.cs` — New File
+
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class ContactController : ControllerBase
+{
+    private readonly IEmailService _emailService;
+    private readonly ILogger<ContactController> _logger;
+
+    public ContactController(IEmailService emailService, ILogger<ContactController> logger)
+    {
+        _emailService = emailService;
+        _logger = logger;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SendMessage([FromBody] ContactRequestDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name) || ...)
+            return BadRequest(new { message = "All fields are required." });
+
+        try
+        {
+            await _emailService.SendContactEmailAsync(dto);
+            _logger.LogInformation("Contact email sent from {Email}", dto.Email);
+            return Ok(new { message = "Message sent successfully." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send contact email from {Email}", dto.Email);
+            return StatusCode(500, new { message = "Failed to send message." });
+        }
+    }
+}
+```
+
+**Route:** `POST /api/contact`
+- `[Route("api/[controller]")]` → `[controller]` is replaced with the class name minus "Controller" → `contact`
+- `[HttpPost]` → this method only responds to HTTP POST requests
+- `[FromBody]` → ASP.NET reads the request body JSON and deserializes it into `ContactRequestDto`
+
+**Validation before sending:**
+We check all fields are filled before attempting to send. If any are empty, return `400 Bad Request` immediately — no wasted SMTP call.
+
+**ILogger:**
+- Logs to Azure App Service's built-in log stream
+- `LogInformation` — normal events (success)
+- `LogError` — exceptions (failure)
+- You can view these in Azure Portal → App Service → Log stream
+
+**Return types:**
+| Return | HTTP Status | When |
+|---|---|---|
+| `Ok(...)` | 200 | Email sent successfully |
+| `BadRequest(...)` | 400 | Missing required fields |
+| `StatusCode(500, ...)` | 500 | SMTP error / network failure |
+
+---
+
+### 5. `Program.cs` — Modified
+
+Added one line to register `EmailService`:
+
+```csharp
+// Before
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+// After
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+```
+
+**What does `AddScoped` mean?**
+
+| Lifetime | Created | Destroyed | Use for |
+|---|---|---|---|
+| `AddSingleton` | Once on startup | App shutdown | Shared state, expensive objects (e.g. BlobStorageService) |
+| `AddScoped` | Once per HTTP request | End of request | Most services — DB work, email, auth |
+| `AddTransient` | Every time it's requested | After use | Lightweight, stateless utilities |
+
+`EmailService` is `AddScoped` because:
+- It uses `IConfiguration` which is fine per-request
+- It creates a new `SmtpClient` each time `SendContactEmailAsync` is called (via `using var`)
+- No shared state between requests
+
+---
+
+### 6. `appsettings.json` — Modified
+
+Added the `Email` section with Gmail SMTP settings:
+
+```json
+"Email": {
+    "SmtpHost": "smtp.gmail.com",
+    "SmtpPort": "587",
+    "SmtpUser": "YOUR_GMAIL@gmail.com",
+    "SmtpPass": "YOUR_GMAIL_APP_PASSWORD",
+    "ToAddress": "YOUR_GMAIL@gmail.com"
+}
+```
+
+**`appsettings.json` vs Azure Environment Variables:**
+
+`appsettings.json` is committed to GitHub — so **never put real passwords here**. The placeholders (`YOUR_GMAIL@gmail.com`, `YOUR_GMAIL_APP_PASSWORD`) show the structure but contain no real secrets.
+
+The real values are set as **Azure App Service Environment Variables**, which override `appsettings.json` at runtime. Azure uses `__` (double underscore) to represent `:` (colon) in nested config:
+
+| appsettings.json key | Azure env variable name |
+|---|---|
+| `Email:SmtpHost` | `Email__SmtpHost` |
+| `Email:SmtpPort` | `Email__SmtpPort` |
+| `Email:SmtpUser` | `Email__SmtpUser` |
+| `Email:SmtpPass` | `Email__SmtpPass` |
+| `Email:ToAddress` | `Email__ToAddress` |
+
+**How to set in Azure Portal:**
+1. Azure Portal → `pinoypantry-api` (App Service)
+2. Left menu → **Environment variables**
+3. Click **+ Add** for each key above
+4. Apply → Confirm
+
+---
+
+### 7. `src/pages/ContactPage.tsx` — Modified
+
+Changed the form submission target from Formspree to the own API:
+
+```tsx
+// Before (Formspree)
+const response = await fetch('https://formspree.io/f/YOUR_FORM_ID', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(formData),
+});
+
+// After (own API)
+const apiUrl = import.meta.env.VITE_API_URL;
+const response = await fetch(`${apiUrl}/api/contact`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(formData),
+});
+```
+
+**Why `import.meta.env.VITE_API_URL`?**
+This reads the `VITE_API_URL` environment variable set in your `.env` files:
+- Local dev (`.env.development`): points to Azure API
+- Production (set in GitHub Actions workflow): points to Azure API
+
+This means the same code works in both environments — no hardcoded URLs.
+
+---
+
+## How to activate (Gmail setup required)
+
+Before the contact form can send emails, you need to configure Gmail:
+
+### Step 1 — Enable 2-Factor Authentication on Gmail
+1. Go to [myaccount.google.com](https://myaccount.google.com)
+2. Security → 2-Step Verification → Turn On
+
+### Step 2 — Generate a Gmail App Password
+1. Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+2. Select app: **Mail** → Select device: **Other** → type "PinoyPantry"
+3. Click **Generate** → copy the 16-character password (e.g. `abcd efgh ijkl mnop`)
+
+### Step 3 — Add credentials to Azure App Service
+In Azure Portal → `pinoypantry-api` → Environment variables → add:
+
+| Name | Value |
+|---|---|
+| `Email__SmtpHost` | `smtp.gmail.com` |
+| `Email__SmtpPort` | `587` |
+| `Email__SmtpUser` | `your.gmail@gmail.com` |
+| `Email__SmtpPass` | the 16-char app password (no spaces) |
+| `Email__ToAddress` | `your.gmail@gmail.com` |
+
+Click **Apply** → the API restarts and picks up the new settings.
+
+### Step 4 — Deploy the API
+Push the API changes to GitHub → GitHub Actions deploys to Azure App Service.
+
+### Step 5 — Deploy the frontend
+Push the ContactPage.tsx change to GitHub → Azure Static Web App auto-deploys.
+
+### Step 6 — Test
+Go to your live site → Contact page → fill in the form → click Send Message.
+Check your Gmail inbox — you should receive the message within seconds.
+
+---
+
+## Full request flow (end to end)
+
+```
+User fills form on /contact (React)
+  ↓
+Click "Send Message"
+  ↓
+ContactPage.tsx: fetch POST /api/contact  { name, email, subject, message }
+  ↓
+Azure Static Web App → Azure App Service (pinoypantry-api)
+  ↓
+ContactController.SendMessage([FromBody] ContactRequestDto dto)
+  ↓
+Validation: all fields filled? → 400 if not
+  ↓
+EmailService.SendContactEmailAsync(dto)
+  ↓
+SmtpClient connects to smtp.gmail.com:587 with TLS
+  ↓
+Authenticates with Gmail App Password
+  ↓
+Gmail delivers email to ToAddress (your inbox)
+  ↓
+SmtpClient returns → EmailService returns → Controller returns 200 OK
+  ↓
+ContactPage.tsx: response.ok → setSubmitted(true)
+  ↓
+Success screen shown to user
+```
+
+---
+
+*Last Updated: March 25, 2026*
