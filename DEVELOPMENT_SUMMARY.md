@@ -2563,4 +2563,209 @@ Success screen shown to user
 
 ---
 
+## Troubleshooting — What went wrong during setup
+
+### Issue: "Something went wrong. Please try again." on form submit
+
+**Root cause:** The API returned HTTP 500 — meaning it tried to send the email but failed.
+
+**Diagnosis steps used:**
+Posted directly to the API endpoint from the terminal to confirm it was receiving requests:
+```powershell
+$body = '{"name":"Test","email":"test@test.com","subject":"Test","message":"Test"}';
+Invoke-WebRequest -Uri "https://.../api/contact" -Method POST -ContentType "application/json" -Body $body -SkipHttpErrorCheck
+```
+Result: `Status: 500, Body: {"message":"Failed to send message. Please try again later."}`
+
+This confirmed the API was running and receiving the request — but the SMTP call inside was failing.
+
+**Actual cause:** A typo in the Azure environment variable name.
+- Wrong: `Email__SmtpPas` (missing one `s`)
+- Correct: `Email__SmtpPass`
+
+Because the variable name was wrong, `_config["Email:SmtpPass"]` returned `null`, and `SmtpClient` failed to authenticate with Gmail.
+
+**Fix:** Corrected the typo in Azure Portal → Environment variables → Apply.
+
+**Key learning:** Environment variable names must match the config path **exactly** — including capitalisation and double underscores. A single character typo silently causes null values at runtime, which only shows up as a 500 error at runtime — not a compile error.
+
+---
+
+## Alternative Option — Formspree (Third-Party, No Backend Needed)
+
+This section documents Formspree as an alternative to the own-API approach. It is **not currently used** in PinoyPantry but is a valid option for simpler projects or prototypes where you don't have a backend.
+
+### What is Formspree?
+
+[Formspree](https://formspree.io) is a hosted service that acts as a middleman between your HTML form and your email inbox. You POST your form data to their server, and they email it to you.
+
+```
+User submits form
+  ↓
+POST https://formspree.io/f/{your-id}
+  ↓
+Formspree receives and forwards
+  ↓
+Your inbox receives the message
+```
+
+**No backend code needed.** It works directly from a React/HTML frontend with a single `fetch()` call.
+
+### Free tier limits
+
+| Feature | Free Plan |
+|---|---|
+| Submissions/month | 50 |
+| Number of forms | 1 |
+| File uploads | No |
+| Custom redirect | No |
+| Spam filtering | Basic (honeypot) |
+| Price | $0/month |
+
+50 submissions/month is more than enough for a low-traffic portfolio or contact form.
+
+### How to set it up (Step by Step)
+
+#### Step 1 — Create a Formspree account
+1. Go to [formspree.io](https://formspree.io)
+2. Click **Get Started Free**
+3. Sign up with the email address where you want to receive messages
+4. Verify your email
+
+#### Step 2 — Create a form
+1. In your Formspree dashboard, click **+ New Form**
+2. Name it (e.g. `PinoyPantry Contact`)
+3. Click **Create Form**
+4. You receive a **Form ID** — it looks like `xabcdefg`
+5. Your form endpoint becomes: `https://formspree.io/f/xabcdefg`
+
+#### Step 3 — Update ContactPage.tsx
+
+In `src/pages/ContactPage.tsx`, find the `handleSubmit` function and replace the fetch call:
+
+```tsx
+// Current code (own API):
+const apiUrl = import.meta.env.VITE_API_URL;
+const response = await fetch(`${apiUrl}/api/contact`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(formData),
+});
+
+// Replace with (Formspree):
+const response = await fetch('https://formspree.io/f/xabcdefg', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'   // tells Formspree to return JSON, not HTML
+  },
+  body: JSON.stringify(formData),
+});
+```
+
+**Important:** Formspree requires the `Accept: application/json` header. Without it, Formspree returns an HTML redirect page instead of JSON, and `response.ok` may still be true but your success handling won't work correctly.
+
+#### Step 4 — Push and deploy
+```bash
+git add src/pages/ContactPage.tsx
+git commit -m "feat: switch contact form to Formspree"
+git push
+```
+
+Wait for GitHub Actions to deploy, then test on the live site.
+
+#### Step 5 — Test
+1. Go to your live `/contact` page
+2. Fill in all fields and click **Send Message**
+3. Check the inbox you signed up with on Formspree
+
+You should receive an email within seconds with the form data neatly formatted.
+
+### What the received email looks like (Formspree)
+
+```
+From:    no-reply@formspree.io
+To:      your@email.com
+Subject: New submission from PinoyPantry Contact
+
+name:    Juan dela Cruz
+email:   juan@example.com
+subject: Order Enquiry
+message: Is the Chicharon available?
+```
+
+Formspree formats it automatically from your JSON field names.
+
+### What the received email looks like (Own API / Gmail SMTP)
+
+```
+From:    PinoyPantry Website <yourname@gmail.com>
+To:      admin@pinoypantry.co.nz
+Subject: [PinoyPantry Contact] Order Enquiry — from Juan dela Cruz
+
+New message from your PinoyPantry contact form:
+
+Name:    Juan dela Cruz
+Email:   juan@example.com
+Subject: Order Enquiry
+
+Message:
+Is the Chicharon available?
+
+---
+Reply directly to this email to respond to Juan dela Cruz.
+```
+
+With the own API you control the format completely. The `Reply-To` header is also set to the customer's email so clicking Reply in your inbox goes directly to the customer.
+
+### Comparison: Own API vs Formspree
+
+| | Own API (Gmail SMTP) | Formspree (Free) |
+|---|---|---|
+| **Backend code** | Yes — `EmailService`, `ContactController`, `ContactDto` | None |
+| **Setup time** | ~30–60 minutes | ~5 minutes |
+| **Cost** | Free (Gmail SMTP free) | Free up to 50/month |
+| **Submission limit** | Unlimited | 50/month |
+| **Privacy** | Data stays in your system | Data passes through Formspree servers |
+| **Reply-To support** | Yes — full control | Formspree sets it automatically |
+| **Email format** | Fully customisable | Auto-formatted from field names |
+| **Spam protection** | Manual (add validation in controller) | Basic honeypot on free tier |
+| **Reliability** | Depends on your App Service + Gmail | Depends on Formspree uptime |
+| **Good for** | Production apps, privacy, full control | Prototypes, landing pages, quick demos |
+
+### Why PinoyPantry uses own API (not Formspree)
+
+- Already has a running .NET API on Azure — no extra infrastructure needed
+- Customer enquiry data stays entirely within the project's own system
+- No monthly submission limits
+- Full control over email format, logging, and future features (e.g. storing enquiries in the database)
+- Good learning exercise for building real-world backend features
+
+---
+
+## Current Contact Form Configuration (as of March 25, 2026)
+
+| Setting | Value |
+|---|---|
+| Approach | Own .NET API (`POST /api/contact`) |
+| SMTP Provider | Gmail SMTP (`smtp.gmail.com`, port `587`, TLS) |
+| Auth method | Gmail App Password (16 chars, no spaces) |
+| Sender (`SmtpUser`) | Personal Gmail address |
+| Recipient (`ToAddress`) | `taernymanayon@gmail.com` (temporary for testing) |
+| Future recipient | `admin@pinoypantry.co.nz` when inbox is confirmed working |
+
+### To switch to the business inbox when ready
+1. Azure Portal → `pinoypantry-api` → **Environment variables**
+2. Find `Email__ToAddress` → click to edit → change value to `admin@pinoypantry.co.nz`
+3. Click **Apply** → confirm
+4. No code changes or redeployment needed — environment variables take effect immediately after the app restarts
+
+### Gmail App Password — important notes
+- The 16-character password Google generates (e.g. `xrgn qyfe ddmc aofr`) should be stored **without spaces**: `xrgnqyfeddmcaofr`
+- It is stored in Azure as `Email__SmtpPass` — never hardcoded in the source code
+- If you ever revoke or regenerate the App Password, update `Email__SmtpPass` in Azure and Apply again
+- The App Password only works if **2-Factor Authentication is enabled** on the Gmail account
+
+---
+
 *Last Updated: March 25, 2026*
