@@ -37,7 +37,6 @@ export function Footer() {
               <li><span className="text-white/30 cursor-not-allowed text-sm" title="Coming soon">About Us</span></li>
               <li><a href="/category/all-products" className="text-white/80 hover:text-[#F9A825] transition-colors text-sm">Shop All</a></li>
               <li><span className="text-white/30 cursor-not-allowed text-sm" title="Coming soon">Deals &amp; Promos</span></li>
-              <li><span className="text-white/30 cursor-not-allowed text-sm" title="Coming soon">Track Order</span></li>
               <li><span className="text-white/30 cursor-not-allowed text-sm" title="Coming soon">FAQs</span></li>
             </ul>
           </div>
@@ -75,7 +74,33 @@ export function Footer() {
         {/* Friend's Business Promotion */}
         <div className="border-t border-white/20 mt-8 pt-8">
           <h4 className="text-center mb-6 text-xl font-semibold text-white">More Taste of Home!</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            {/* Sugbo Delights */}
+            <a
+              href="https://sugbodelights.netlify.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group"
+            >
+              <div className="bg-gradient-to-r from-[#F9A825] to-[#FFB300] hover:from-[#FFB300] hover:to-[#F9A825] px-6 py-5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 h-full">
+                <div className="flex flex-col items-center text-center gap-3">
+                  <img
+                    src="/images/sugbo.jpg"
+                    alt="Sugbo Delights Logo"
+                    className="h-20 w-auto rounded-lg shadow-md object-contain"
+                  />
+                  <div className="flex flex-col items-center">
+                    <span className="text-[#3E2723] font-bold text-base group-hover:underline">
+                      Sugbo Delights
+                    </span>
+                    <span className="text-[#3E2723]/80 text-xs mt-1">
+                      Filipino meat sausages &amp; processed meats
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </a>
+
             {/* No. 8 Neo's Home Cooking */}
             <a 
               href="https://www.facebook.com/profile.php?id=61566011519820" 

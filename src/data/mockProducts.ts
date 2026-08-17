@@ -78,6 +78,14 @@ export const mockCategories: Category[] = [
     itemCount: 25,
     description: 'Milk and dairy products'
   },
+  {
+    id: 'dried-fish',
+    title: 'Dried Fish',
+    slug: 'dried-fish',
+    icon: '🐟',
+    itemCount: 15,
+    description: 'Traditional Filipino dried and salted fish'
+  },
 ];
 
 export const mockProducts: Product[] = [

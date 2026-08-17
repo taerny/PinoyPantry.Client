@@ -185,10 +185,10 @@ export function Header({
         isScrolled ? 'h-0 opacity-0' : 'h-8 opacity-100'
       }`}>
         <div className="container mx-auto px-4 h-full">
-          <p className={`text-center text-sm text-[#3E2723] py-2 transition-opacity duration-300 ${
+          <p className={`text-center text-sm font-medium text-[#3E2723] py-2 transition-opacity duration-300 ${
             isScrolled ? 'opacity-0' : 'opacity-100'
           }`}>
-            Free shipping on orders over $100! 🇳🇿
+            Proudly Filipino-owned, serving New Zealand 🇳🇿
           </p>
         </div>
       </div>

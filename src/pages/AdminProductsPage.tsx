@@ -5,19 +5,21 @@ import { AdminLayout } from '../components/AdminLayout';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
-const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Sweets'];
+const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Sweets', 'Dried Fish'];
 
 interface Product {
   id: number;
   name: string;
   description: string;
   price: number;
+  costPrice: number;
   imageUrl: string;
   category: string;
   stockQuantity: number;
+  isPublished: boolean;
 }
 
-type InlineField = 'price' | 'stockQuantity' | 'category';
+type InlineField = 'price' | 'costPrice' | 'stockQuantity' | 'category';
 
 interface InlineEdit {
   id: number;
@@ -25,7 +27,23 @@ interface InlineEdit {
   value: string;
 }
 
-const EMPTY_FORM = { name: '', description: '', price: '', category: '', stockQuantity: '', imageUrl: '' };
+const EMPTY_FORM = { name: '', description: '', price: '', costPrice: '', category: '', stockQuantity: '', imageUrl: '', isPublished: false };
+
+// Reads a failed fetch Response and returns a human-readable message.
+// Handles both { message: "..." } and FluentValidation's
+// { errors: { FieldName: ["msg1", "msg2"] } } shapes.
+async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const err = await res.json();
+    if (err.message) return err.message;
+    if (err.errors) {
+      const messages = Object.values(err.errors).flat();
+      if (messages.length) return messages.join(' ');
+    }
+    if (err.title) return err.title;
+  } catch { /* body wasn't JSON */ }
+  return fallback;
+}
 
 export function AdminProductsPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -49,17 +67,22 @@ export function AdminProductsPage() {
     if (!authLoading && user && isAdmin) fetchProducts();
   }, [authLoading, user, isAdmin]);
 
-  // Focus inline input when it appears
+  // Focus inline input when it appears — only on the initial mount of an edit
+  // session (id/field), not on every keystroke, otherwise re-selecting the
+  // whole value on each change makes typing impossible.
   useEffect(() => {
     if (inlineEdit && inlineRef.current) {
       inlineRef.current.focus();
       if (inlineRef.current instanceof HTMLInputElement) inlineRef.current.select();
     }
-  }, [inlineEdit]);
+  }, [inlineEdit?.id, inlineEdit?.field]);
 
   async function fetchProducts() {
+    if (!user) return;
     try {
-      const res = await fetch(`${API_URL}/api/products?limit=50`);
+      const res = await fetch(`${API_URL}/api/products/admin?limit=200`, {
+        headers: { 'Authorization': `Bearer ${user.token}` },
+      });
       const data = await res.json();
       setProducts(data.data || []);
     } catch { setMessage({ type: 'error', text: 'Failed to load products.' }); }
@@ -76,9 +99,11 @@ export function AdminProductsPage() {
       name: form.name,
       description: form.description,
       price: parseFloat(form.price) || 0,
+      costPrice: parseFloat(form.costPrice) || 0,
       category: form.category,
       stockQuantity: parseInt(form.stockQuantity) || 0,
       imageUrl: form.imageUrl,
+      isPublished: form.isPublished,
     };
 
     try {
@@ -88,7 +113,7 @@ export function AdminProductsPage() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
         body: JSON.stringify(body),
       });
-      if (!res.ok) { const err = await res.json(); throw new Error(err.message || 'Failed'); }
+      if (!res.ok) throw new Error(await extractErrorMessage(res, 'Failed to save product.'));
       setMessage({ type: 'success', text: editingId ? 'Product updated!' : 'Product created!' });
       setShowForm(false);
       setEditingId(null);
@@ -182,8 +207,10 @@ export function AdminProductsPage() {
       description: product.description ?? '',
       imageUrl: product.imageUrl ?? '',
       price: inlineEdit.field === 'price' ? parseFloat(inlineEdit.value) || (product.price ?? 0) : (product.price ?? 0),
+      costPrice: inlineEdit.field === 'costPrice' ? parseFloat(inlineEdit.value) || (product.costPrice ?? 0) : (product.costPrice ?? 0),
       stockQuantity: inlineEdit.field === 'stockQuantity' ? parseInt(inlineEdit.value, 10) || (product.stockQuantity ?? 0) : (product.stockQuantity ?? 0),
       category: inlineEdit.field === 'category' ? inlineEdit.value : (product.category ?? ''),
+      isPublished: product.isPublished ?? false,
     };
 
     setInlineEdit(null);
@@ -197,24 +224,56 @@ export function AdminProductsPage() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
         body: JSON.stringify(updated),
       });
-      if (!res.ok) throw new Error('Failed to save');
+      if (!res.ok) throw new Error(await extractErrorMessage(res, 'Failed to save inline change.'));
       setMessage({ type: 'success', text: `Updated ${inlineEdit.field === 'stockQuantity' ? 'stock' : inlineEdit.field}.` });
-    } catch {
-      setMessage({ type: 'error', text: 'Failed to save inline change.' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to save inline change.' });
       fetchProducts(); // revert on failure
     }
   }
 
   function cancelInline() { setInlineEdit(null); }
 
+  // ── Publish toggle ───────────────────────────────────────────────────────────
+  async function togglePublish(product: Product) {
+    if (!user) return;
+    const nextPublished = !product.isPublished;
+
+    setProducts(prev => prev.map(p => p.id === product.id ? { ...p, isPublished: nextPublished } : p));
+
+    try {
+      const res = await fetch(`${API_URL}/api/products/${product.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
+        body: JSON.stringify({
+          name: product.name ?? '',
+          description: product.description ?? '',
+          imageUrl: product.imageUrl ?? '',
+          price: product.price ?? 0,
+          costPrice: product.costPrice ?? 0,
+          stockQuantity: product.stockQuantity ?? 0,
+          category: product.category ?? '',
+          isPublished: nextPublished,
+        }),
+      });
+      if (!res.ok) throw new Error(await extractErrorMessage(res, 'Failed to update publish status.'));
+      setMessage({ type: 'success', text: nextPublished ? `${product.name} published.` : `${product.name} unpublished.` });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update publish status.' });
+      fetchProducts(); // revert on failure
+    }
+  }
+
   function openEdit(product: Product) {
     setForm({
       name: product.name ?? '',
       description: product.description ?? '',
       price: String(product.price ?? 0),
+      costPrice: String(product.costPrice ?? 0),
       category: product.category ?? '',
       stockQuantity: String(product.stockQuantity ?? 0),
       imageUrl: product.imageUrl ?? '',
+      isPublished: product.isPublished ?? false,
     });
     setEditingId(product.id);
     setShowForm(true);
@@ -313,21 +372,31 @@ export function AdminProductsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price ($)</label>
+                    <input type="number" step="0.01" min="0" value={form.costPrice} onChange={e => setForm({ ...form, costPrice: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Selling Price ($)</label>
                     <input type="number" step="0.01" min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
                     <input type="number" min="0" value={form.stockQuantity} onChange={e => setForm({ ...form, stockQuantity: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required>
+                      <option value="">Select category</option>
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required>
-                    <option value="">Select category</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" checked={form.isPublished} onChange={e => setForm({ ...form, isPublished: e.target.checked })} className="w-4 h-4 rounded border-gray-300 text-[#D32F2F] focus:ring-[#F9A825]" />
+                  Published <span className="text-gray-400">— visible on the live storefront</span>
+                </label>
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }} className="flex-1 px-4 py-2.5 border rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
                   <button type="submit" className="flex-1 px-4 py-2.5 bg-[#D32F2F] text-white rounded-xl text-sm font-medium hover:bg-[#B71C1C]">{editingId ? 'Save Changes' : 'Create Product'}</button>
@@ -369,13 +438,16 @@ export function AdminProductsPage() {
         )}
 
         {/* ── Product Table ────────────────────────────────────────────── */}
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border overflow-auto max-h-[75vh]">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-gray-50 border-b sticky top-0 z-10">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Product</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">
                   Category <span className="text-gray-300 font-normal normal-case">(click to edit)</span>
+                </th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">
+                  Cost <span className="text-gray-300 font-normal normal-case">(click)</span>
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                   Price <span className="text-gray-300 font-normal normal-case">(click)</span>
@@ -383,12 +455,14 @@ export function AdminProductsPage() {
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">
                   Stock <span className="text-gray-300 font-normal normal-case">(click)</span>
                 </th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Published</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {products.map(product => {
                 const isInlinePrice = inlineEdit?.id === product.id && inlineEdit.field === 'price';
+                const isInlineCost = inlineEdit?.id === product.id && inlineEdit.field === 'costPrice';
                 const isInlineQty = inlineEdit?.id === product.id && inlineEdit.field === 'stockQuantity';
                 const isInlineCat = inlineEdit?.id === product.id && inlineEdit.field === 'category';
 
@@ -432,6 +506,32 @@ export function AdminProductsPage() {
                         >
                           {product.category}
                           <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-40" />
+                        </button>
+                      )}
+                    </td>
+
+                    {/* Cost Price — inline edit */}
+                    <td className="px-4 py-3 text-right hidden lg:table-cell">
+                      {isInlineCost ? (
+                        <input
+                          ref={el => { inlineRef.current = el; }}
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={inlineEdit.value}
+                          onChange={e => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                          onBlur={saveInline}
+                          onKeyDown={e => { if (e.key === 'Enter') saveInline(); if (e.key === 'Escape') cancelInline(); }}
+                          className="w-20 text-sm text-right border border-[#F9A825] rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => startInline(product.id, 'costPrice', String(product.costPrice ?? 0))}
+                          className="text-sm text-gray-500 hover:text-[#D32F2F] hover:bg-red-50 px-2 py-1 rounded-lg transition-colors group inline-flex items-center gap-1"
+                          title="Click to edit cost price (supplier price — never shown to customers)"
+                        >
+                          <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-40" />
+                          ${Number(product.costPrice ?? 0).toFixed(2)}
                         </button>
                       )}
                     </td>
@@ -489,6 +589,21 @@ export function AdminProductsPage() {
                           {product.stockQuantity ?? 0}
                         </button>
                       )}
+                    </td>
+
+                    {/* Published toggle */}
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => togglePublish(product)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                          product.isPublished
+                            ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                        title={product.isPublished ? 'Click to unpublish' : 'Click to publish to the live storefront'}
+                      >
+                        {product.isPublished ? 'Published' : 'Draft'}
+                      </button>
                     </td>
 
                     {/* Actions */}

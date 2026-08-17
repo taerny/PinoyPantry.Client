@@ -59,6 +59,7 @@ const SLUG_TO_CATEGORY: Record<string, string> = {
   'sweets':          'Sweets',
   'soups-mixes':     'Soups & Mixes',
   'dairy':           'Dairy',
+  'dried-fish':      'Dried Fish',
 };
 
 export const ApiProductService = {

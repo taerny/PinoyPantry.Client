@@ -1,10 +1,7 @@
-import { ArrowLeft, CheckCircle, CreditCard } from 'lucide-react';
+import { ArrowLeft, X, Mail } from 'lucide-react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 import { useState } from 'react';
 import { useCart } from '../contexts/CartContext';
-import { StripeCheckout } from '../components/StripeCheckout';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
 interface CheckoutPageProps {
   onBack: () => void;
@@ -12,10 +9,7 @@ interface CheckoutPageProps {
 }
 
 export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
-  const { cartItems, clearCart } = useCart();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [orderComplete, setOrderComplete] = useState(false);
-  const [orderNumber, setOrderNumber] = useState('');
+  const { cartItems } = useCart();
 
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
@@ -28,6 +22,7 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
   });
 
   const [paymentMethod, setPaymentMethod] = useState('card');
+  const [showComingSoonPopup, setShowComingSoonPopup] = useState(false);
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shipping = subtotal >= 100 ? 0 : 10;
@@ -39,87 +34,6 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
       [e.target.name]: e.target.value,
     });
   };
-
-  async function applyInventoryAndComplete() {
-    try {
-      if (cartItems.length > 0) {
-        await fetch(`${API_URL}/api/orders`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(
-            cartItems.map(i => ({
-              productId: typeof i.id === 'string' ? parseInt(i.id) || 0 : i.id,
-              name: i.name,
-              price: i.price,
-              quantity: i.quantity,
-            }))
-          ),
-        });
-      }
-    } finally {
-      const orderNum = 'PN' + Math.random().toString(36).substr(2, 9).toUpperCase();
-      setOrderNumber(orderNum);
-      setOrderComplete(true);
-      clearCart();
-    }
-  }
-
-  const handlePlaceOrder = async () => {
-    // Validate form
-    if (!shippingInfo.fullName || !shippingInfo.email || !shippingInfo.phone || 
-        !shippingInfo.address || !shippingInfo.city || !shippingInfo.province || 
-        !shippingInfo.zipCode || !paymentMethod) {
-      alert('Please fill in all required fields and select a payment method.');
-      return;
-    }
-
-    setIsProcessing(true);
-    await applyInventoryAndComplete();
-    setIsProcessing(false);
-  };
-
-  if (orderComplete) {
-    return (
-      <div className="min-h-screen bg-background py-8">
-        <div className="container mx-auto px-4">
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-lg shadow-md p-8 text-center">
-              <div className="mb-6">
-                <CheckCircle className="w-24 h-24 text-green-600 mx-auto mb-4" />
-                <h1 className="mb-2 text-green-600">
-                  {paymentMethod === 'card' ? 'Payment Successful!' : 'Order Placed Successfully!'}
-                </h1>
-                <p className="text-muted-foreground">
-                  {paymentMethod === 'card'
-                    ? "Your card has been charged securely via Stripe. We'll send you a confirmation email shortly."
-                    : "Thank you for your order. We'll send you a confirmation email shortly."}
-                </p>
-              </div>
-
-              <div className="bg-[#FAF3E0] rounded-lg p-6 mb-6">
-                <p className="text-sm text-muted-foreground mb-2">Order Number</p>
-                <p className="text-[#3E2723] mb-4">#{orderNumber}</p>
-                <p className="text-sm text-muted-foreground mb-2">Total Amount</p>
-                <p className="text-[#D32F2F]">${total.toFixed(2)}</p>
-              </div>
-
-              <div className="space-y-3">
-                <button
-                  onClick={onComplete}
-                  className="w-full bg-[#D32F2F] text-white py-3 rounded-lg hover:bg-[#B71C1C] transition-colors"
-                >
-                  Continue Shopping
-                </button>
-                <p className="text-sm text-muted-foreground">
-                  We'll send order updates to {shippingInfo.email}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background py-8">
@@ -311,34 +225,12 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
                 </div>
               </div>
 
-              {paymentMethod === 'card' ? (
-                <div className="border rounded-lg p-4 mb-3">
-                  <div className="flex items-center gap-2 mb-3 text-sm font-medium text-[#3E2723]">
-                    <CreditCard className="w-4 h-4" />
-                    Pay with Card (Stripe)
-                  </div>
-                  <StripeCheckout
-                    items={cartItems.map(i => ({ id: typeof i.id === 'string' ? parseInt(i.id) || 0 : i.id, name: i.name, price: i.price, quantity: i.quantity }))}
-                    total={total}
-                    onSuccess={() => {
-                      applyInventoryAndComplete();
-                    }}
-                    onCancel={() => setPaymentMethod('')}
-                  />
-                </div>
-              ) : (
-                <button
-                  onClick={handlePlaceOrder}
-                  disabled={isProcessing}
-                  className={`w-full py-3 rounded-lg transition-colors mb-3 ${
-                    isProcessing
-                      ? 'bg-gray-400 text-white cursor-not-allowed'
-                      : 'bg-[#D32F2F] text-white hover:bg-[#B71C1C]'
-                  }`}
-                >
-                  {isProcessing ? 'Processing Order...' : 'Place Order'}
-                </button>
-              )}
+              <button
+                onClick={() => setShowComingSoonPopup(true)}
+                className="w-full py-3 rounded-lg transition-colors mb-3 bg-[#D32F2F] text-white hover:bg-[#B71C1C]"
+              >
+                Place Order
+              </button>
 
               <p className="text-xs text-center text-muted-foreground">
                 By placing your order, you agree to our terms and conditions
@@ -347,6 +239,39 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
           </div>
         </div>
       </div>
+
+      {/* Online checkout not live yet */}
+      {showComingSoonPopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center relative">
+            <button
+              onClick={() => setShowComingSoonPopup(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <Mail className="w-12 h-12 text-[#D32F2F] mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-[#3E2723] mb-2">Online Checkout Coming Soon</h3>
+            <p className="text-sm text-gray-500 mb-5">
+              We're still setting up online payments. Please contact us directly and we'll help you complete your purchase.
+            </p>
+            <div className="flex flex-col gap-3">
+              <a
+                href="/contact"
+                className="w-full px-4 py-2.5 bg-[#D32F2F] text-white rounded-xl text-sm font-medium hover:bg-[#B71C1C] transition-colors"
+              >
+                Contact Us
+              </a>
+              <button
+                onClick={() => { setShowComingSoonPopup(false); onComplete(); }}
+                className="w-full px-4 py-2.5 border rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Continue Shopping
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

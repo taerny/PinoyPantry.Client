@@ -46,6 +46,7 @@ export class ProductService {
           'sweets':          'Sweets',
           'soups-mixes':     'Soups & Mixes',
           'dairy':           'Dairy',
+          'dried-fish':      'Dried Fish',
         };
 
         const dbCategory = SLUG_TO_CATEGORY[cat.slug];

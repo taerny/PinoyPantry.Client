@@ -15,8 +15,11 @@ import { HomeRunsPage } from './pages/HomeRunsPage';
 import { AdminUploadPage } from './pages/AdminUploadPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminProductsPage } from './pages/AdminProductsPage';
+import { AdminImportPage } from './pages/AdminImportPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { ContactPage } from './pages/ContactPage';
+import { PlayerStatsPage } from './pages/PlayerStatsPage';
+import { DesktopLayoutPage } from './pages/DesktopLayoutPage';
 import { CartProvider, useCart } from './contexts/CartContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { useCategories } from './hooks/useCategories';
@@ -72,6 +75,8 @@ function AppContent() {
   const isLoginPage = location.pathname === '/login';
   const isStatsComparePage = location.pathname === '/stats-compare';
   const isHomeRunsPage = location.pathname === '/home-runs';
+  const isPlayerStatsPage = location.pathname === '/player-stats';
+  const isDesktopLayoutPage = location.pathname === '/desktop-layout';
   const isAdminPage = location.pathname.startsWith('/admin');
 
   const handleCheckoutFromDrawer = () => {
@@ -80,7 +85,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {!isLoginPage && !isStatsComparePage && !isHomeRunsPage && !isAdminPage && (
+      {!isLoginPage && !isStatsComparePage && !isHomeRunsPage && !isPlayerStatsPage && !isDesktopLayoutPage && !isAdminPage && (
         <Header
           onCartClick={handleCartClick}
           onCategoryClick={handleCategoryClick}
@@ -105,12 +110,15 @@ function AppContent() {
           <Route path="/admin/upload" element={<AdminUploadPage />} />
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="/admin/products" element={<AdminProductsPage />} />
+          <Route path="/admin/import" element={<AdminImportPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/player-stats" element={<PlayerStatsPage />} />
+          <Route path="/desktop-layout" element={<DesktopLayoutPage />} />
         </Routes>
       </main>
 
-      {!isLoginPage && !isStatsComparePage && !isHomeRunsPage && !isAdminPage && <Footer />}
+      {!isLoginPage && !isStatsComparePage && !isHomeRunsPage && !isPlayerStatsPage && !isDesktopLayoutPage && !isAdminPage && <Footer />}
 
       {/* Sliding Cart Drawer */}
       <CartDrawer
