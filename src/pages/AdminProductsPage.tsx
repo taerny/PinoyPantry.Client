@@ -17,6 +17,8 @@ interface Product {
   category: string;
   stockQuantity: number;
   isPublished: boolean;
+  recommendedRetail: number | null;
+  margin: number | null; // fraction, e.g. 0.27 = 27%
 }
 
 type InlineField = 'price' | 'costPrice' | 'stockQuantity' | 'category';
@@ -27,7 +29,7 @@ interface InlineEdit {
   value: string;
 }
 
-const EMPTY_FORM = { name: '', description: '', price: '', costPrice: '', category: '', stockQuantity: '', imageUrl: '', isPublished: false };
+const EMPTY_FORM = { name: '', description: '', price: '', costPrice: '', category: '', stockQuantity: '', imageUrl: '', isPublished: false, recommendedRetail: '', margin: '' };
 
 // Reads a failed fetch Response and returns a human-readable message.
 // Handles both { message: "..." } and FluentValidation's
@@ -104,6 +106,8 @@ export function AdminProductsPage() {
       stockQuantity: parseInt(form.stockQuantity) || 0,
       imageUrl: form.imageUrl,
       isPublished: form.isPublished,
+      recommendedRetail: form.recommendedRetail === '' ? null : parseFloat(form.recommendedRetail) || 0,
+      margin: form.margin === '' ? null : (parseFloat(form.margin) || 0) / 100,
     };
 
     try {
@@ -211,6 +215,8 @@ export function AdminProductsPage() {
       stockQuantity: inlineEdit.field === 'stockQuantity' ? parseInt(inlineEdit.value, 10) || (product.stockQuantity ?? 0) : (product.stockQuantity ?? 0),
       category: inlineEdit.field === 'category' ? inlineEdit.value : (product.category ?? ''),
       isPublished: product.isPublished ?? false,
+      recommendedRetail: product.recommendedRetail,
+      margin: product.margin,
     };
 
     setInlineEdit(null);
@@ -254,6 +260,8 @@ export function AdminProductsPage() {
           stockQuantity: product.stockQuantity ?? 0,
           category: product.category ?? '',
           isPublished: nextPublished,
+          recommendedRetail: product.recommendedRetail,
+          margin: product.margin,
         }),
       });
       if (!res.ok) throw new Error(await extractErrorMessage(res, 'Failed to update publish status.'));
@@ -274,6 +282,8 @@ export function AdminProductsPage() {
       stockQuantity: String(product.stockQuantity ?? 0),
       imageUrl: product.imageUrl ?? '',
       isPublished: product.isPublished ?? false,
+      recommendedRetail: product.recommendedRetail === null || product.recommendedRetail === undefined ? '' : String(product.recommendedRetail),
+      margin: product.margin === null || product.margin === undefined ? '' : String(Math.round(product.margin * 1000) / 10),
     });
     setEditingId(product.id);
     setShowForm(true);
@@ -393,6 +403,16 @@ export function AdminProductsPage() {
                     </select>
                   </div>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Recommended Retail ($)</label>
+                    <input type="number" step="0.01" min="0" value={form.recommendedRetail} onChange={e => setForm({ ...form, recommendedRetail: e.target.value })} placeholder="Optional" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Margin (%)</label>
+                    <input type="number" step="0.1" min="0" value={form.margin} onChange={e => setForm({ ...form, margin: e.target.value })} placeholder="Optional" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
+                  </div>
+                </div>
                 <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                   <input type="checkbox" checked={form.isPublished} onChange={e => setForm({ ...form, isPublished: e.target.checked })} className="w-4 h-4 rounded border-gray-300 text-[#D32F2F] focus:ring-[#F9A825]" />
                   Published <span className="text-gray-400">— visible on the live storefront</span>
@@ -451,6 +471,12 @@ export function AdminProductsPage() {
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                   Price <span className="text-gray-300 font-normal normal-case">(click)</span>
+                </th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden xl:table-cell whitespace-nowrap">
+                  Rec. Retail
+                </th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden xl:table-cell">
+                  Margin
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">
                   Stock <span className="text-gray-300 font-normal normal-case">(click)</span>
@@ -560,6 +586,16 @@ export function AdminProductsPage() {
                           ${Number(product.price ?? 0).toFixed(2)}
                         </button>
                       )}
+                    </td>
+
+                    {/* Recommended Retail — view only, edit via the modal */}
+                    <td className="px-4 py-3 text-right hidden xl:table-cell text-sm text-gray-500">
+                      {product.recommendedRetail === null || product.recommendedRetail === undefined ? '—' : `$${Number(product.recommendedRetail).toFixed(2)}`}
+                    </td>
+
+                    {/* Margin — view only, edit via the modal */}
+                    <td className="px-4 py-3 text-right hidden xl:table-cell text-sm text-gray-500">
+                      {product.margin === null || product.margin === undefined ? '—' : `${(Number(product.margin) * 100).toFixed(1)}%`}
                     </td>
 
                     {/* Stock Qty — inline edit */}
