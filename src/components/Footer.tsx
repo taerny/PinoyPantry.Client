@@ -1,6 +1,9 @@
 import { Facebook, Instagram, Twitter, Mail, MapPin } from 'lucide-react';
+import { useHeroContent } from '../contexts/HeroContentContext';
 
 export function Footer() {
+  const { content } = useHeroContent();
+
   return (
     <footer className="bg-[#3E2723] text-white">
       <div className="container mx-auto px-4 py-12">
@@ -15,7 +18,7 @@ export function Footer() {
               />
             </div>
             <p className="text-white/80 mb-4">
-              Your one-stop shop for authentic Filipino foods. Bringing the taste of home to you!
+              {content.footerAboutText}
             </p>
             <div className="flex gap-3">
               <span title="Coming soon" className="w-10 h-10 bg-[#4A332E] rounded-full flex items-center justify-center opacity-40 cursor-not-allowed">
@@ -68,152 +71,6 @@ export function Footer() {
                 </a>
               </li>
             </ul>
-          </div>
-        </div>
-
-        {/* Friend's Business Promotion */}
-        <div className="border-t border-white/20 mt-8 pt-8">
-          <h4 className="text-center mb-6 text-xl font-semibold text-white">More Taste of Home!</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            {/* Sugbo Delights */}
-            <a
-              href="https://sugbodelights.netlify.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group"
-            >
-              <div className="bg-gradient-to-r from-[#F9A825] to-[#FFB300] hover:from-[#FFB300] hover:to-[#F9A825] px-6 py-5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 h-full">
-                <div className="flex flex-col items-center text-center gap-3">
-                  <img
-                    src="/images/sugbo.jpg"
-                    alt="Sugbo Delights Logo"
-                    className="h-20 w-auto rounded-lg shadow-md object-contain"
-                  />
-                  <div className="flex flex-col items-center">
-                    <span className="text-[#3E2723] font-bold text-base group-hover:underline">
-                      Sugbo Delights
-                    </span>
-                    <span className="text-[#3E2723]/80 text-xs mt-1">
-                      Filipino meat sausages &amp; processed meats
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </a>
-
-            {/* No. 8 Neo's Home Cooking */}
-            <a 
-              href="https://www.facebook.com/profile.php?id=61566011519820" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="group"
-            >
-              <div className="bg-gradient-to-r from-[#F9A825] to-[#FFB300] hover:from-[#FFB300] hover:to-[#F9A825] px-6 py-5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 h-full">
-                <div className="flex flex-col items-center text-center gap-3">
-                  <img 
-                    src="/images/neo.jpg" 
-                    alt="No. 8 Neo's Home Cooking Logo" 
-                    className="h-20 w-auto rounded-lg shadow-md"
-                  />
-                  <div className="flex flex-col items-center">
-                    <span className="text-[#3E2723] font-bold text-base group-hover:underline">
-                      No. 8 Neo's Home Cooking
-                    </span>
-                    <span className="text-[#3E2723]/80 text-xs mt-1">
-                      Authentic home-cooked Filipino meals
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </a>
-
-            {/* Bai Lechon */}
-            <a 
-              href="https://www.facebook.com/profile.php?id=61585550965581" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="group"
-            >
-              <div className="bg-gradient-to-r from-[#F9A825] to-[#FFB300] hover:from-[#FFB300] hover:to-[#F9A825] px-6 py-5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 h-full">
-                <div className="flex flex-col items-center text-center gap-3">
-                  <img 
-                    src="/images/bai-lechon-logo.jpg" 
-                    alt="Bai Lechon Logo" 
-                    className="h-20 w-auto rounded-lg shadow-md object-contain"
-                    onError={(e) => {
-                      // Fallback to Facebook CDN if local image not found
-                      e.currentTarget.src = "/images/bai.jpg";
-                    }}
-                  />
-                  <div className="flex flex-col items-center">
-                    <span className="text-[#3E2723] font-bold text-base group-hover:underline">
-                      Bai Lechon
-                    </span>
-                    <span className="text-[#3E2723]/80 text-xs mt-1">
-                      Authentic Filipino roasted pig
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </a>
-
-            {/* Eskina Flavors of Asia */}
-            <a 
-              href="https://www.facebook.com/eskina.dunners" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="group"
-            >
-              <div className="bg-gradient-to-r from-[#F9A825] to-[#FFB300] hover:from-[#FFB300] hover:to-[#F9A825] px-6 py-5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 h-full">
-                <div className="flex flex-col items-center text-center gap-3">
-                  <img 
-                    src="/images/eskina.jpg" 
-                    alt="Eskina Flavors of Asia Logo" 
-                    className="h-20 w-auto rounded-lg shadow-md object-contain"
-                    crossOrigin="anonymous"
-                    referrerPolicy="no-referrer"
-                    onError={() => {
-                      console.error('Eskina image failed to load');
-                      // Image will just not show if it fails
-                    }}
-                  />
-                  <div className="flex flex-col items-center">
-                    <span className="text-[#3E2723] font-bold text-base group-hover:underline">
-                      Eskina Flavors of Asia
-                    </span>
-                    <span className="text-[#3E2723]/80 text-xs mt-1">
-                      Authentic Asian flavors
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </a>
-
-            {/* Bacolod Inasal */}
-            <a 
-              href="https://www.facebook.com/profile.php?id=61568213924365" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="group"
-            >
-              <div className="bg-gradient-to-r from-[#F9A825] to-[#FFB300] hover:from-[#FFB300] hover:to-[#F9A825] px-6 py-5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 h-full">
-                <div className="flex flex-col items-center text-center gap-3">
-                  <img 
-                    src="/images/nameets.jpg" 
-                    alt="Bacolod Inasal Logo" 
-                    className="h-20 w-auto rounded-lg shadow-md object-contain"
-                  />
-                  <div className="flex flex-col items-center">
-                    <span className="text-[#3E2723] font-bold text-base group-hover:underline">
-                      Bacolod Inasal
-                    </span>
-                    <span className="text-[#3E2723]/80 text-xs mt-1">
-                      Authentic Ilonggo chargrilled food
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </a>
           </div>
         </div>
 

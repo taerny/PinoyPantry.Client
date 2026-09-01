@@ -4,6 +4,7 @@ import { useCart } from "../contexts/CartContext";
 import { useAuth } from "../contexts/AuthContext";
 import { Category, Product } from "../types";
 import ProductService from "../services/productService";
+import { useHeroContent } from "../contexts/HeroContentContext";
 
 interface HeaderProps {
   onCartClick?: () => void;
@@ -26,6 +27,7 @@ export function Header({
 }: HeaderProps) {
   const { getCartCount } = useCart();
   const { user, isAdmin, logout } = useAuth();
+  const { content: heroContent } = useHeroContent();
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -188,7 +190,7 @@ export function Header({
           <p className={`text-center text-sm font-medium text-[#3E2723] py-2 transition-opacity duration-300 ${
             isScrolled ? 'opacity-0' : 'opacity-100'
           }`}>
-            Proudly Filipino-owned, serving New Zealand 🇳🇿
+            {heroContent.topBarText}
           </p>
         </div>
       </div>

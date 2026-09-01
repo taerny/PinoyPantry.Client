@@ -17,11 +17,13 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminProductsPage } from './pages/AdminProductsPage';
 import { AdminImportPage } from './pages/AdminImportPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
+import { AdminHeroPage } from './pages/AdminHeroPage';
 import { ContactPage } from './pages/ContactPage';
 import { PlayerStatsPage } from './pages/PlayerStatsPage';
 import { DesktopLayoutPage } from './pages/DesktopLayoutPage';
 import { CartProvider, useCart } from './contexts/CartContext';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { HeroContentProvider, useHeroContent } from './contexts/HeroContentContext';
 import { useCategories } from './hooks/useCategories';
 
 function AppContent() {
@@ -29,11 +31,26 @@ function AppContent() {
   const location = useLocation();
   const { categories } = useCategories();
   const { showCartDrawer, setShowCartDrawer } = useCart();
+  const { isAdmin, loading: authLoading } = useAuth();
+  const { content: heroContent, loading: heroLoading } = useHeroContent();
 
   // Scroll to top on route change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [location.pathname]);
+
+  // Don't render the real site (even for a flash) until we know both who's asking
+  // (admin or not) and whether maintenance mode is on — avoids a content flicker.
+  if (authLoading || heroLoading) {
+    return <div className="min-h-screen bg-white" />;
+  }
+
+  // Maintenance mode: everyone except a logged-in admin sees the maintenance page,
+  // except on /login and /admin/* so admin can still sign in to turn it back off.
+  const isAdminRoute = location.pathname === '/login' || location.pathname.startsWith('/admin');
+  if (heroContent.isMaintenanceMode && !isAdmin && !isAdminRoute) {
+    return <MaintenancePage headline={heroContent.maintenanceHeadline} message={heroContent.maintenanceMessage} />;
+  }
 
   // Get current category from URL
   const getCurrentCategory = () => {
@@ -112,6 +129,7 @@ function AppContent() {
           <Route path="/admin/products" element={<AdminProductsPage />} />
           <Route path="/admin/import" element={<AdminImportPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
+          <Route path="/admin/hero" element={<AdminHeroPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/player-stats" element={<PlayerStatsPage />} />
           <Route path="/desktop-layout" element={<DesktopLayoutPage />} />
@@ -131,20 +149,14 @@ function AppContent() {
 }
 
 export default function App() {
-  // Check if maintenance mode is enabled
-  const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
-
-  // If maintenance mode is enabled, show maintenance page only
-  if (isMaintenanceMode) {
-    return <MaintenancePage />;
-  }
-
   return (
     <BrowserRouter>
       <AuthProvider>
-        <CartProvider>
-          <AppContent />
-        </CartProvider>
+        <HeroContentProvider>
+          <CartProvider>
+            <AppContent />
+          </CartProvider>
+        </HeroContentProvider>
       </AuthProvider>
     </BrowserRouter>
   );
