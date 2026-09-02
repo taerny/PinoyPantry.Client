@@ -12,8 +12,6 @@ export function CartDrawer({ isOpen, onClose, onCheckout }: CartDrawerProps) {
   const { cartItems, updateQuantity, removeItem } = useCart();
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = subtotal >= 100 ? 0 : 10;
-  const total = subtotal + shipping;
 
   const handleCheckout = () => {
     onCheckout();
@@ -24,7 +22,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout }: CartDrawerProps) {
     <>
       {/* Backdrop Overlay */}
       <div
-        className={`fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 z-40 ${
+        className={`fixed inset-0 bg-black/50 transition-opacity duration-300 z-40 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
@@ -80,11 +78,13 @@ export function CartDrawer({ isOpen, onClose, onCheckout }: CartDrawerProps) {
                 >
                   <div className="flex gap-2">
                     {/* Product Image - Even Smaller */}
-                    <ImageWithFallback
-                      src={item.image}
-                      alt={item.name}
-                      className="w-12 h-12 object-cover rounded flex-shrink-0"
-                    />
+                    <div className="relative w-12 h-12 flex-shrink-0">
+                      <ImageWithFallback
+                        src={item.image}
+                        alt={item.name}
+                        className="w-12 h-12 object-cover rounded"
+                      />
+                    </div>
 
                     {/* Product Info */}
                     <div className="flex-1 min-w-0">
@@ -139,35 +139,13 @@ export function CartDrawer({ isOpen, onClose, onCheckout }: CartDrawerProps) {
         {/* Footer - Summary & Checkout */}
         {cartItems.length > 0 && (
           <div className="border-t border-gray-200 bg-[#FAF3E0] px-6 py-4">
-            {/* Shipping Notice */}
-            {subtotal < 100 && (
-              <div className="bg-[#FFF3CD] border border-[#F9A825] rounded-lg px-4 py-3 mb-4">
-                <p className="text-sm text-[#3E2723]">
-                  Add <span className="font-semibold text-[#D32F2F]">${(100 - subtotal).toFixed(2)}</span> more for free shipping! 🚚
-                </p>
-              </div>
-            )}
-
             {/* Price Summary */}
             <div className="space-y-2 mb-4">
-              <div className="flex justify-between text-gray-700">
+              <div className="flex justify-between text-lg font-bold text-[#3E2723]">
                 <span>Subtotal:</span>
-                <span className="font-medium">${subtotal.toFixed(2)}</span>
+                <span className="text-[#D32F2F]">${subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-gray-700">
-                <span>Shipping:</span>
-                <span className="font-medium">
-                  {shipping === 0 ? (
-                    <span className="text-green-600">FREE</span>
-                  ) : (
-                    `$${shipping.toFixed(2)}`
-                  )}
-                </span>
-              </div>
-              <div className="border-t border-gray-300 pt-2 flex justify-between text-lg font-bold text-[#3E2723]">
-                <span>Total:</span>
-                <span className="text-[#D32F2F]">${total.toFixed(2)}</span>
-              </div>
+              <p className="text-xs text-gray-500">Delivery/pickup options and fees are set at checkout.</p>
             </div>
 
             {/* Action Buttons */}

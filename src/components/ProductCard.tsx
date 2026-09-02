@@ -4,6 +4,7 @@ import { useCart } from '../contexts/CartContext';
 import { useState } from 'react';
 
 interface ProductCardProps {
+  id: string;
   name: string;
   price: number;
   originalPrice?: number;
@@ -12,15 +13,12 @@ interface ProductCardProps {
   rating?: number;
 }
 
-export function ProductCard({ name, price, originalPrice, image, badge, rating = 4.5 }: ProductCardProps) {
+export function ProductCard({ id, name, price, originalPrice, image, badge, rating = 4.5 }: ProductCardProps) {
   const { addToCart } = useCart();
   const [isAdding, setIsAdding] = useState(false);
   const discount = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
 
   const handleAddToCart = () => {
-    // Create a unique ID based on the product name
-    const id = name.toLowerCase().replace(/\s+/g, '-');
-    
     addToCart({
       id,
       name,

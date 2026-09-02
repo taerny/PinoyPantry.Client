@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Pencil, Trash2, X, Check, AlertCircle, Package, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, AlertCircle, Package, Upload, Image as ImageIcon, Lock, Tag } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AdminLayout } from '../components/AdminLayout';
 
@@ -21,7 +21,9 @@ interface Product {
   margin: number | null; // fraction, e.g. 0.27 = 27%
 }
 
-type InlineField = 'price' | 'costPrice' | 'stockQuantity' | 'category';
+// Category, Cost, Recommended Retail and Margin are supplier-sourced facts, not something an
+// admin should casually overwrite after the fact — only Price and Stock get quick inline edits.
+type InlineField = 'price' | 'stockQuantity';
 
 interface InlineEdit {
   id: number;
@@ -211,9 +213,9 @@ export function AdminProductsPage() {
       description: product.description ?? '',
       imageUrl: product.imageUrl ?? '',
       price: inlineEdit.field === 'price' ? parseFloat(inlineEdit.value) || (product.price ?? 0) : (product.price ?? 0),
-      costPrice: inlineEdit.field === 'costPrice' ? parseFloat(inlineEdit.value) || (product.costPrice ?? 0) : (product.costPrice ?? 0),
+      costPrice: product.costPrice ?? 0,
       stockQuantity: inlineEdit.field === 'stockQuantity' ? parseInt(inlineEdit.value, 10) || (product.stockQuantity ?? 0) : (product.stockQuantity ?? 0),
-      category: inlineEdit.field === 'category' ? inlineEdit.value : (product.category ?? ''),
+      category: product.category ?? '',
       isPublished: product.isPublished ?? false,
       recommendedRetail: product.recommendedRetail,
       margin: product.margin,
@@ -304,7 +306,7 @@ export function AdminProductsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-bold text-[#3E2723]">Product Management</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Click price, stock or category to edit inline</p>
+            <p className="text-xs text-gray-400 mt-0.5">Click price or stock to edit inline. Category, cost, recommended retail and margin come from supplier data and are locked once a product exists.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -333,17 +335,21 @@ export function AdminProductsPage() {
         {showForm && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-5 border-b">
-                <h3 className="text-lg font-bold text-[#3E2723]">{editingId ? 'Edit Product' : 'Add New Product'}</h3>
-                <button onClick={() => { setShowForm(false); setEditingId(null); }} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <div className="flex items-center justify-between p-5 bg-gradient-to-r from-[#3E2723] to-[#4A332E] rounded-t-2xl">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center">
+                    {editingId ? <Pencil className="w-4 h-4 text-[#F9A825]" /> : <Plus className="w-5 h-5 text-[#F9A825]" />}
+                  </div>
+                  <h3 className="text-lg font-bold text-white">{editingId ? 'Edit Product' : 'Add New Product'}</h3>
+                </div>
+                <button onClick={() => { setShowForm(false); setEditingId(null); }} className="text-white/60 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
               </div>
-              <form onSubmit={handleSubmit} className="p-5 space-y-4">
+              <form onSubmit={handleSubmit} className="p-5 space-y-5">
 
-                {/* Image section */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Product Image</label>
-                  <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                {/* Identity: image + name + description */}
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
                       {form.imageUrl ? (
                         <img src={form.imageUrl} alt="Product" className="w-full h-full object-cover" />
                       ) : (
@@ -353,69 +359,110 @@ export function AdminProductsPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex-1">
-                      <button
-                        type="button"
-                        onClick={handleImageSelect}
-                        disabled={uploading}
-                        className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-[#D32F2F] hover:text-[#D32F2F] transition-colors disabled:opacity-50 w-full justify-center"
-                      >
-                        <Upload className="w-4 h-4" />
-                        {uploading ? 'Uploading...' : form.imageUrl ? 'Replace Image' : 'Upload Image'}
+                    <button
+                      type="button"
+                      onClick={handleImageSelect}
+                      disabled={uploading}
+                      className="mt-2 w-20 flex flex-col items-center gap-0.5 text-[#D32F2F] hover:text-[#B71C1C] transition-colors disabled:opacity-50"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-medium leading-tight text-center">{uploading ? 'Uploading...' : form.imageUrl ? 'Replace' : 'Upload'}</span>
+                    </button>
+                    {form.imageUrl && (
+                      <button type="button" onClick={() => setForm(f => ({ ...f, imageUrl: '' }))} className="w-20 text-[10px] text-gray-400 hover:text-red-500 text-center block">
+                        Remove
                       </button>
-                      {form.imageUrl && (
-                        <button type="button" onClick={() => setForm(f => ({ ...f, imageUrl: '' }))} className="mt-1.5 text-xs text-red-500 hover:text-red-700 w-full text-center">
-                          Remove image
-                        </button>
-                      )}
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Product name" className="w-full px-3 py-2 text-base font-semibold text-[#3E2723] border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
+                    <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description (optional)" className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825] h-16 resize-none" />
+                  </div>
+                </div>
+
+                {/* What admin can actually change — the visual focus of this form */}
+                <div className="rounded-xl border-2 border-[#D32F2F]/25 bg-[#D32F2F]/5 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-full bg-[#D32F2F] flex items-center justify-center flex-shrink-0">
+                      <Pencil className="w-3 h-3 text-white" />
+                    </div>
+                    <h4 className="text-sm font-bold text-[#3E2723]">Your Price &amp; Stock</h4>
+                    <span className="ml-auto text-[10px] font-semibold text-[#D32F2F] bg-white px-2 py-0.5 rounded-full border border-[#D32F2F]/20">EDITABLE</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Selling Price ($)</label>
+                      <input type="number" step="0.01" min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="w-full px-3 py-2 text-lg font-bold text-[#3E2723] bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Stock Quantity</label>
+                      <input type="number" min="0" value={form.stockQuantity} onChange={e => setForm({ ...form, stockQuantity: e.target.value })} className="w-full px-3 py-2 text-lg font-bold text-[#3E2723] bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
                     </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
-                  <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825] h-20 resize-none" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price ($)</label>
-                    <input type="number" step="0.01" min="0" value={form.costPrice} onChange={e => setForm({ ...form, costPrice: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
+                {/* Supplier-sourced facts — locked once the product exists, editable only at creation */}
+                {editingId ? (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Lock className="w-3.5 h-3.5 text-gray-400" />
+                      <h4 className="text-sm font-bold text-gray-500">Supplier Data</h4>
+                      <span className="ml-auto text-[10px] font-semibold text-gray-400 bg-white px-2 py-0.5 rounded-full border border-gray-200">LOCKED</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-4">
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase flex items-center gap-1"><Tag className="w-2.5 h-2.5" /> Category</p>
+                        <p className="text-sm font-medium text-gray-600 mt-0.5">{form.category || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase">Cost Price</p>
+                        <p className="text-sm font-medium text-gray-600 mt-0.5">${(parseFloat(form.costPrice) || 0).toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase">Recommended Retail</p>
+                        <p className="text-sm font-medium text-gray-600 mt-0.5">{form.recommendedRetail ? `$${(parseFloat(form.recommendedRetail) || 0).toFixed(2)}` : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase">Margin</p>
+                        <p className="text-sm font-medium text-gray-600 mt-0.5">{form.margin ? `${(parseFloat(form.margin) || 0).toFixed(1)}%` : '—'}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Selling Price ($)</label>
-                    <input type="number" step="0.01" min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
+                ) : (
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <h4 className="text-sm font-bold text-gray-600 mb-3">Sourcing Details <span className="font-normal text-gray-400">(optional, sets the basis for future imports)</span></h4>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Cost Price ($)</label>
+                        <input type="number" step="0.01" min="0" value={form.costPrice} onChange={e => setForm({ ...form, costPrice: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
+                        <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required>
+                          <option value="">Select category</option>
+                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Recommended Retail ($)</label>
+                        <input type="number" step="0.01" min="0" value={form.recommendedRetail} onChange={e => setForm({ ...form, recommendedRetail: e.target.value })} placeholder="Optional" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Margin (%)</label>
+                        <input type="number" step="0.1" min="0" value={form.margin} onChange={e => setForm({ ...form, margin: e.target.value })} placeholder="Optional" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+                )}
+
+                <label className="flex items-center justify-between p-3.5 rounded-xl border cursor-pointer hover:bg-gray-50 transition-colors">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
-                    <input type="number" min="0" value={form.stockQuantity} onChange={e => setForm({ ...form, stockQuantity: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
+                    <p className="text-sm font-medium text-gray-700">Published</p>
+                    <p className="text-xs text-gray-400">Visible on the live storefront</p>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                    <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required>
-                      <option value="">Select category</option>
-                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Recommended Retail ($)</label>
-                    <input type="number" step="0.01" min="0" value={form.recommendedRetail} onChange={e => setForm({ ...form, recommendedRetail: e.target.value })} placeholder="Optional" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Margin (%)</label>
-                    <input type="number" step="0.1" min="0" value={form.margin} onChange={e => setForm({ ...form, margin: e.target.value })} placeholder="Optional" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
-                  </div>
-                </div>
-                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input type="checkbox" checked={form.isPublished} onChange={e => setForm({ ...form, isPublished: e.target.checked })} className="w-4 h-4 rounded border-gray-300 text-[#D32F2F] focus:ring-[#F9A825]" />
-                  Published <span className="text-gray-400">— visible on the live storefront</span>
+                  <input type="checkbox" checked={form.isPublished} onChange={e => setForm({ ...form, isPublished: e.target.checked })} className="w-5 h-5 rounded border-gray-300 text-[#D32F2F] focus:ring-[#F9A825]" />
                 </label>
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }} className="flex-1 px-4 py-2.5 border rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
@@ -457,8 +504,8 @@ export function AdminProductsPage() {
           </div>
         )}
 
-        {/* ── Product Table ────────────────────────────────────────────── */}
-        <div className="bg-white rounded-xl shadow-sm border overflow-auto max-h-[75vh]">
+        {/* ── Product Table (sm and up) ────────────────────────────────── */}
+        <div className="hidden sm:block bg-white rounded-xl shadow-sm border overflow-auto max-h-[75vh]">
           <table className="w-full">
             <thead className="bg-gray-50 border-b sticky top-0 z-10">
               <tr>
@@ -488,9 +535,7 @@ export function AdminProductsPage() {
             <tbody className="divide-y">
               {products.map(product => {
                 const isInlinePrice = inlineEdit?.id === product.id && inlineEdit.field === 'price';
-                const isInlineCost = inlineEdit?.id === product.id && inlineEdit.field === 'costPrice';
                 const isInlineQty = inlineEdit?.id === product.id && inlineEdit.field === 'stockQuantity';
-                const isInlineCat = inlineEdit?.id === product.id && inlineEdit.field === 'category';
 
                 return (
                   <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
@@ -511,55 +556,16 @@ export function AdminProductsPage() {
                       </div>
                     </td>
 
-                    {/* Category — inline edit */}
+                    {/* Category — locked, from supplier data */}
                     <td className="px-4 py-3 hidden md:table-cell">
-                      {isInlineCat ? (
-                        <select
-                          ref={el => { inlineRef.current = el; }}
-                          value={inlineEdit.value}
-                          onChange={e => setInlineEdit({ ...inlineEdit, value: e.target.value })}
-                          onBlur={saveInline}
-                          onKeyDown={e => { if (e.key === 'Enter') saveInline(); if (e.key === 'Escape') cancelInline(); }}
-                          className="text-sm border border-[#F9A825] rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#F9A825] bg-white"
-                        >
-                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      ) : (
-                        <button
-                          onClick={() => startInline(product.id, 'category', product.category)}
-                          className="text-sm text-gray-600 hover:text-[#D32F2F] hover:bg-red-50 px-2 py-1 rounded-lg transition-colors group flex items-center gap-1"
-                          title="Click to edit category"
-                        >
-                          {product.category}
-                          <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-40" />
-                        </button>
-                      )}
+                      <span className="text-sm text-gray-500" title="From supplier data — locked">{product.category}</span>
                     </td>
 
-                    {/* Cost Price — inline edit */}
+                    {/* Cost Price — locked, from supplier data */}
                     <td className="px-4 py-3 text-right hidden lg:table-cell">
-                      {isInlineCost ? (
-                        <input
-                          ref={el => { inlineRef.current = el; }}
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={inlineEdit.value}
-                          onChange={e => setInlineEdit({ ...inlineEdit, value: e.target.value })}
-                          onBlur={saveInline}
-                          onKeyDown={e => { if (e.key === 'Enter') saveInline(); if (e.key === 'Escape') cancelInline(); }}
-                          className="w-20 text-sm text-right border border-[#F9A825] rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
-                        />
-                      ) : (
-                        <button
-                          onClick={() => startInline(product.id, 'costPrice', String(product.costPrice ?? 0))}
-                          className="text-sm text-gray-500 hover:text-[#D32F2F] hover:bg-red-50 px-2 py-1 rounded-lg transition-colors group inline-flex items-center gap-1"
-                          title="Click to edit cost price (supplier price — never shown to customers)"
-                        >
-                          <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-40" />
-                          ${Number(product.costPrice ?? 0).toFixed(2)}
-                        </button>
-                      )}
+                      <span className="text-sm text-gray-500" title="From supplier data — locked, never shown to customers">
+                        ${Number(product.costPrice ?? 0).toFixed(2)}
+                      </span>
                     </td>
 
                     {/* Price — inline edit */}
@@ -658,6 +664,125 @@ export function AdminProductsPage() {
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* ── Product Cards (mobile only) ──────────────────────────────── */}
+        <div className="sm:hidden bg-white rounded-xl shadow-sm border divide-y max-h-[75vh] overflow-y-auto">
+          {products.map(product => {
+            const isInlinePrice = inlineEdit?.id === product.id && inlineEdit.field === 'price';
+            const isInlineQty = inlineEdit?.id === product.id && inlineEdit.field === 'stockQuantity';
+            const hasRefFigures = (product.recommendedRetail !== null && product.recommendedRetail !== undefined) || (product.margin !== null && product.margin !== undefined);
+
+            return (
+              <div key={product.id} className="p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                    {product.imageUrl
+                      ? <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center"><Package className="w-5 h-5 text-gray-300" /></div>
+                    }
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-[#3E2723] truncate">{product.name}</p>
+                    <p className="text-xs text-gray-400">#{product.id}</p>
+                  </div>
+                  <button
+                    onClick={() => togglePublish(product)}
+                    className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                      product.isPublished ? 'bg-green-50 text-green-700 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                    title={product.isPublished ? 'Tap to unpublish' : 'Tap to publish to the live storefront'}
+                  >
+                    {product.isPublished ? 'Published' : 'Draft'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {/* Category — locked, from supplier data */}
+                  <div>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Category</p>
+                    <p className="text-sm text-gray-500 px-2 py-1.5 truncate" title="From supplier data — locked">{product.category}</p>
+                  </div>
+
+                  {/* Stock — tap to edit */}
+                  <div>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Stock</p>
+                    {isInlineQty ? (
+                      <input
+                        ref={el => { inlineRef.current = el; }}
+                        type="number"
+                        min="0"
+                        value={inlineEdit.value}
+                        onChange={e => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                        onBlur={saveInline}
+                        onKeyDown={e => { if (e.key === 'Enter') saveInline(); if (e.key === 'Escape') cancelInline(); }}
+                        className="w-full text-sm border border-[#F9A825] rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => startInline(product.id, 'stockQuantity', String(product.stockQuantity ?? 0))}
+                        className={`w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium transition-colors hover:opacity-80 ${
+                          (product.stockQuantity ?? 0) > 50 ? 'bg-green-50 text-green-700' :
+                          (product.stockQuantity ?? 0) > 0  ? 'bg-amber-50 text-amber-700' :
+                                                              'bg-red-50 text-red-700'
+                        }`}
+                      >
+                        {product.stockQuantity ?? 0}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Cost — locked, from supplier data */}
+                  <div>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Cost</p>
+                    <p className="text-sm text-gray-500 px-2 py-1.5" title="From supplier data — locked, never shown to customers">${Number(product.costPrice ?? 0).toFixed(2)}</p>
+                  </div>
+
+                  {/* Price — tap to edit */}
+                  <div>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Price</p>
+                    {isInlinePrice ? (
+                      <input
+                        ref={el => { inlineRef.current = el; }}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={inlineEdit.value}
+                        onChange={e => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                        onBlur={saveInline}
+                        onKeyDown={e => { if (e.key === 'Enter') saveInline(); if (e.key === 'Escape') cancelInline(); }}
+                        className="w-full text-sm border border-[#F9A825] rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
+                      />
+                    ) : (
+                      <button onClick={() => startInline(product.id, 'price', String(product.price ?? 0))} className="w-full text-left text-sm font-semibold text-[#3E2723] px-2 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                        ${Number(product.price ?? 0).toFixed(2)}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {hasRefFigures && (
+                  <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
+                    {product.recommendedRetail !== null && product.recommendedRetail !== undefined && (
+                      <span>Rec. Retail ${Number(product.recommendedRetail).toFixed(2)}</span>
+                    )}
+                    {product.margin !== null && product.margin !== undefined && (
+                      <span>Margin {(Number(product.margin) * 100).toFixed(1)}%</span>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button onClick={() => openEdit(product)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <Pencil className="w-3.5 h-3.5" /> Edit
+                  </button>
+                  <button onClick={() => setDeleteConfirm(product.id)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </AdminLayout>

@@ -1,18 +1,39 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { CartItem, CartContextType } from '../types';
 
 /**
  * Cart Context
- * 
+ *
  * Manages shopping cart state across the application.
  * Checkout will be integrated with the .NET API in a future phase.
  */
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+const STORAGE_KEY = 'pp_cart';
+
+function loadStoredCart(): CartItem[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>(loadStoredCart);
   const [showCartDrawer, setShowCartDrawer] = useState(false);
+
+  // Persists on every change so the cart survives a refresh — no login required,
+  // same as most storefronts handle guest carts.
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cartItems));
+    } catch {
+      // Storage unavailable (private browsing, quota, etc.) — cart just won't persist.
+    }
+  }, [cartItems]);
 
   const addToCart = (item: Omit<CartItem, 'quantity'>) => {
     setCartItems(prevItems => {

@@ -18,6 +18,8 @@ import { AdminProductsPage } from './pages/AdminProductsPage';
 import { AdminImportPage } from './pages/AdminImportPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { AdminHeroPage } from './pages/AdminHeroPage';
+import { AdminOrdersPage } from './pages/AdminOrdersPage';
+import { InvoicePage } from './pages/InvoicePage';
 import { ContactPage } from './pages/ContactPage';
 import { PlayerStatsPage } from './pages/PlayerStatsPage';
 import { DesktopLayoutPage } from './pages/DesktopLayoutPage';
@@ -130,6 +132,8 @@ function AppContent() {
           <Route path="/admin/import" element={<AdminImportPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
           <Route path="/admin/hero" element={<AdminHeroPage />} />
+          <Route path="/admin/orders" element={<AdminOrdersPage />} />
+          <Route path="/admin/orders/:id/invoice" element={<InvoicePage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/player-stats" element={<PlayerStatsPage />} />
           <Route path="/desktop-layout" element={<DesktopLayoutPage />} />
