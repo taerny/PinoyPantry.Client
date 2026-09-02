@@ -21,7 +21,11 @@ export const DEFAULT_HERO_CONTENT: HeroContent = {
   buttonLink: '/category/all-products',
   footerAboutText: 'Your one-stop shop for authentic Filipino foods. Bringing the taste of home to you!',
   topBarText: 'Proudly Filipino-owned, serving New Zealand 🇳🇿',
-  isMaintenanceMode: false,
+  // Fail-closed: if the hero content fetch ever can't reach the API (CORS gap on a
+  // new domain, transient outage), default to showing maintenance rather than
+  // silently exposing the real site. A logged-in admin still bypasses this via
+  // isAdmin, which is independent of this fetch — so this has no admin-side cost.
+  isMaintenanceMode: true,
   maintenanceHeadline: "We're Cooking Up Something New!",
   maintenanceMessage: "PinoyPantry is getting a fresh batch of updates. Balik kami agad — hang tight, we'll be back before you can say 'Pasabuy!'",
 };
