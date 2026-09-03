@@ -33,6 +33,7 @@ export function WalkInSaleModal({ onClose, onCreated }: WalkInSaleModalProps) {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [notes, setNotes] = useState('');
+  const [alreadyPaid, setAlreadyPaid] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,6 +93,7 @@ export function WalkInSaleModal({ onClose, onCreated }: WalkInSaleModalProps) {
           customerName: customerName.trim() || null,
           customerEmail: customerEmail.trim() || null,
           notes: notes.trim() || null,
+          alreadyPaid,
           items: cart.map(i => ({ productId: i.productId, quantity: i.quantity })),
         }),
       });
@@ -200,6 +202,35 @@ export function WalkInSaleModal({ onClose, onCreated }: WalkInSaleModalProps) {
                 className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Payment</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAlreadyPaid(true)}
+                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
+                  alreadyPaid ? 'border-[#F9A825] bg-yellow-50 text-[#3E2723]' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                Paid now
+              </button>
+              <button
+                type="button"
+                onClick={() => setAlreadyPaid(false)}
+                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
+                  !alreadyPaid ? 'border-[#F9A825] bg-yellow-50 text-[#3E2723]' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                Pay later
+              </button>
+            </div>
+            {!alreadyPaid && (
+              <p className="mt-1.5 text-xs text-gray-400">
+                Saved as Pending — mark it Paid from the orders list once they've actually paid.
+              </p>
+            )}
           </div>
 
           <div>
