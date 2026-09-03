@@ -1,8 +1,9 @@
 import { useState, useEffect, Fragment } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, AlertCircle, X, ClipboardList, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Check, AlertCircle, X, ClipboardList, ChevronDown, ChevronUp, FileText, Plus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AdminLayout } from '../components/AdminLayout';
+import { WalkInSaleModal } from '../components/WalkInSaleModal';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
@@ -22,6 +23,7 @@ interface Order {
   notes: string | null;
   deliveryMethod: string | null;
   deliveryFee: number | null;
+  channel: 'Online' | 'Walk-in';
   status: 'Pending' | 'Paid' | 'Cancelled' | 'Completed';
   total: number;
   createdAt: string;
@@ -43,6 +45,7 @@ export function AdminOrdersPage() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [feeDraft, setFeeDraft] = useState<{ orderId: number; value: string } | null>(null);
+  const [showWalkInModal, setShowWalkInModal] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user && isAdmin) fetchOrders();
@@ -119,10 +122,29 @@ export function AdminOrdersPage() {
   return (
     <AdminLayout activePage="orders">
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h2 className="text-xl font-bold text-[#3E2723] flex items-center gap-2"><ClipboardList className="w-5 h-5" /> Orders</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Every order placed through the storefront. Click a row to see items.</p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-[#3E2723] flex items-center gap-2"><ClipboardList className="w-5 h-5" /> Orders</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Every order placed through the storefront or entered manually. Click a row to see items.</p>
+          </div>
+          <button
+            onClick={() => setShowWalkInModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium bg-[#3E2723] text-white hover:bg-[#2C1A17] flex-shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            New Walk-in Sale
+          </button>
         </div>
+
+        {showWalkInModal && (
+          <WalkInSaleModal
+            onClose={() => setShowWalkInModal(false)}
+            onCreated={() => {
+              fetchOrders();
+              setMessage({ type: 'success', text: 'Walk-in sale recorded.' });
+            }}
+          />
+        )}
 
         {message && (
           <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
@@ -166,8 +188,13 @@ export function AdminOrdersPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <p className="text-sm text-gray-700">{order.customerName}</p>
-                          <p className="text-xs text-gray-400">{order.customerEmail}</p>
+                          <p className="text-sm text-gray-700 flex items-center gap-1.5">
+                            {order.customerName}
+                            {order.channel === 'Walk-in' && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-600">Walk-in</span>
+                            )}
+                          </p>
+                          <p className="text-xs text-gray-400">{order.customerEmail || '—'}</p>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-500 hidden md:table-cell">
                           {new Date(order.createdAt).toLocaleDateString()}
