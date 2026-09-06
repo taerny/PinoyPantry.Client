@@ -160,7 +160,7 @@ export function AdminOrdersPage() {
             <p className="text-sm text-gray-500">No orders yet — they'll show up here once customers start checking out.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-sm border overflow-auto max-h-[75vh]">
+          <div className="hidden sm:block bg-white rounded-xl shadow-sm border overflow-auto max-h-[75vh]">
             <table className="w-full">
               <thead className="bg-gray-50 border-b sticky top-0 z-10">
                 <tr>
@@ -293,6 +293,121 @@ export function AdminOrdersPage() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* ── Orders Cards (mobile only) ───────────────────────────────── */}
+          <div className="sm:hidden bg-white rounded-xl shadow-sm border divide-y max-h-[75vh] overflow-y-auto">
+            {orders.map(order => {
+              const expanded = expandedId === order.id;
+              const canPay = order.status === 'Pending';
+              const canComplete = order.status === 'Paid';
+              const canCancel = order.status === 'Pending' || order.status === 'Paid';
+              return (
+                <div key={order.id} className="p-4">
+                  <div className="flex items-start justify-between gap-2" onClick={() => setExpandedId(expanded ? null : order.id)}>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 text-sm font-medium text-[#3E2723]">
+                        {expanded ? <ChevronUp className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />}
+                        {order.invoiceNumber}
+                      </div>
+                      <p className="text-sm text-gray-700 flex items-center gap-1.5 mt-1 truncate">
+                        {order.customerName}
+                        {order.channel === 'Walk-in' && (
+                          <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-600">Walk-in</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">{order.customerEmail || '—'}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{new Date(order.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-medium text-[#3E2723]">
+                        ${order.total.toFixed(2)}
+                        {order.deliveryFee === null && <span className="block text-amber-500 text-xs">+delivery</span>}
+                      </p>
+                      <span className={`inline-block mt-1 px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_STYLES[order.status]}`}>{order.status}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center flex-wrap gap-1.5 mt-3" onClick={e => e.stopPropagation()}>
+                    <Link
+                      to={`/admin/orders/${order.id}/invoice`}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    >
+                      <FileText className="w-3 h-3" />
+                      Invoice
+                    </Link>
+                    {canPay && (
+                      <button disabled={updatingId === order.id} onClick={() => updateStatus(order, 'Paid')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-50">
+                        Mark Paid
+                      </button>
+                    )}
+                    {canComplete && (
+                      <button disabled={updatingId === order.id} onClick={() => updateStatus(order, 'Completed')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50">
+                        Mark Completed
+                      </button>
+                    )}
+                    {canCancel && (
+                      <button disabled={updatingId === order.id} onClick={() => updateStatus(order, 'Cancelled')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50">
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+
+                  {expanded && (
+                    <div className="mt-3 pt-3 border-t space-y-3">
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase mb-2">Items</p>
+                        <div className="space-y-1">
+                          {order.items.map((item, i) => (
+                            <div key={i} className="flex justify-between text-sm">
+                              <span className="text-gray-600">{item.productName} × {item.quantity}</span>
+                              <span className="text-gray-700">${(item.price * item.quantity).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase mb-2">Customer Details</p>
+                        <div className="text-sm text-gray-600 space-y-1">
+                          {order.customerPhone && <p>📞 {order.customerPhone}</p>}
+                          {order.customerAddress && <p className="whitespace-pre-line">📍 {order.customerAddress}</p>}
+                          {order.notes && <p className="text-gray-500 italic">"{order.notes}"</p>}
+                          {order.deliveryMethod && (
+                            <p>
+                              🚚 {order.deliveryMethod}
+                              {order.deliveryFee !== null && ` — $${order.deliveryFee.toFixed(2)}`}
+                            </p>
+                          )}
+                        </div>
+
+                        {order.deliveryFee === null && (
+                          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <p className="text-xs text-amber-700 mb-2">Delivery fee not set yet — contact the customer to arrange, then confirm the fee here.</p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-500">$</span>
+                              <input
+                                type="number" step="0.01" min="0"
+                                value={feeDraft?.orderId === order.id ? feeDraft.value : ''}
+                                onChange={e => setFeeDraft({ orderId: order.id, value: e.target.value })}
+                                placeholder="0.00"
+                                className="w-24 text-sm px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
+                              />
+                              <button
+                                disabled={updatingId === order.id}
+                                onClick={() => confirmDeliveryFee(order)}
+                                className="px-3 py-1 rounded-lg text-xs font-medium bg-[#3E2723] text-white hover:bg-[#2C1A17] disabled:opacity-50"
+                              >
+                                Confirm Fee
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
