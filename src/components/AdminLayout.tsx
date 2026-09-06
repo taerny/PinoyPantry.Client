@@ -1,10 +1,10 @@
-import { Shield, Home, LogOut, LayoutDashboard, Package, Settings, Upload, Image, ClipboardList } from 'lucide-react';
+import { Shield, Home, LogOut, LayoutDashboard, Package, Settings, Upload, Image, ClipboardList, Mail } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { type ReactNode } from 'react';
 
 interface AdminLayoutProps {
   children: ReactNode;
-  activePage: 'dashboard' | 'products' | 'import' | 'settings' | 'hero' | 'orders';
+  activePage: 'dashboard' | 'products' | 'import' | 'settings' | 'hero' | 'orders' | 'newsletter';
 }
 
 export function AdminLayout({ children, activePage }: AdminLayoutProps) {
@@ -17,6 +17,7 @@ export function AdminLayout({ children, activePage }: AdminLayoutProps) {
     { id: 'products' as const, label: 'Products', icon: Package, href: '/admin/products' },
     { id: 'import' as const, label: 'Import', icon: Upload, href: '/admin/import' },
     { id: 'hero' as const, label: 'Hero Section', icon: Image, href: '/admin/hero' },
+    { id: 'newsletter' as const, label: 'Newsletter', icon: Mail, href: '/admin/newsletter' },
     { id: 'settings' as const, label: 'Settings', icon: Settings, href: '/admin/settings' },
   ];
 
