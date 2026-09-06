@@ -24,19 +24,19 @@ export function AdminLayout({ children, activePage }: AdminLayoutProps) {
     <div className="min-h-screen bg-gray-100">
       <header className="bg-[#1a1a2e] text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-[#D32F2F] flex items-center justify-center">
+          <div className="flex items-center justify-between h-16 gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-lg bg-[#D32F2F] flex items-center justify-center flex-shrink-0">
                 <Shield className="w-5 h-5 text-white" />
               </div>
-              <div>
-                <h1 className="text-base font-bold tracking-wide">
+              <div className="min-w-0">
+                <h1 className="text-base font-bold tracking-wide truncate">
                   <span className="text-[#F9A825]">PINOY</span>PANTRY
-                  <span className="text-[#F9A825] text-xs ml-2 font-normal">ADMIN</span>
+                  <span className="hidden sm:inline text-[#F9A825] text-xs ml-2 font-normal">ADMIN</span>
                 </h1>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
               <div className="hidden sm:flex items-center gap-2 text-sm text-white/60">
                 <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white">
                   {user.fullName.charAt(0).toUpperCase()}
@@ -56,12 +56,12 @@ export function AdminLayout({ children, activePage }: AdminLayoutProps) {
         </div>
         <div className="bg-[#16213e] border-t border-white/10">
           <div className="max-w-7xl mx-auto px-4">
-            <nav className="flex items-center gap-1 py-1">
+            <nav className="flex items-center gap-1 py-1 overflow-x-auto">
               {navItems.map(item => (
                 <a
                   key={item.id}
                   href={item.href}
-                  className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors whitespace-nowrap flex-shrink-0 ${
                     activePage === item.id
                       ? 'text-[#F9A825] bg-white/5 font-medium'
                       : 'text-white/50 hover:text-white/80 hover:bg-white/5'
