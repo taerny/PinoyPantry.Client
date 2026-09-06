@@ -27,7 +27,7 @@ export function Hero() {
           <div className="flex flex-wrap gap-4">
             <button
               onClick={handleButtonClick}
-              className="bg-[#D32F2F] text-white px-8 py-3 rounded-lg hover:bg-[#B71C1C] transition-colors"
+              className="bg-[#3E2723] text-white px-8 py-3 rounded-lg hover:bg-[#4A332E] transition-colors"
             >
               {content.buttonText}
             </button>

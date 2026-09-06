@@ -1,11 +1,19 @@
-import { Facebook, Instagram, Twitter, Mail, MapPin } from 'lucide-react';
+import { Instagram, Twitter, Mail, MapPin, Code2, ArrowRight } from 'lucide-react';
 import { useHeroContent } from '../contexts/HeroContentContext';
+
+function FacebookF({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 320 512" fill="currentColor" className={className}>
+      <path d="M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06h40.42V6.26S260.43 0 225.36 0c-73.22 0-121.08 44.38-121.08 124.72v70.62H22.89V288h81.39v224h100.17V288z" />
+    </svg>
+  );
+}
 
 export function Footer() {
   const { content } = useHeroContent();
 
   return (
-    <footer className="bg-[#3E2723] text-white">
+    <footer className="bg-gradient-to-b from-[#2E1512] to-[#241009] text-white">
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* About */}
@@ -21,13 +29,19 @@ export function Footer() {
               {content.footerAboutText}
             </p>
             <div className="flex gap-3">
-              <span title="Coming soon" className="w-10 h-10 bg-[#4A332E] rounded-full flex items-center justify-center opacity-40 cursor-not-allowed">
-                <Facebook className="w-5 h-5" />
-              </span>
-              <span title="Coming soon" className="w-10 h-10 bg-[#4A332E] rounded-full flex items-center justify-center opacity-40 cursor-not-allowed">
+              <a
+                href="https://www.facebook.com/profile.php?id=61593512277062"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Follow us on Facebook"
+                className="w-10 h-10 bg-[#1877F2] rounded-full flex items-center justify-center text-white hover:bg-[#145DBF] transition-colors"
+              >
+                <FacebookF className="w-5 h-5" />
+              </a>
+              <span title="Coming soon" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center opacity-40 cursor-not-allowed">
                 <Instagram className="w-5 h-5" />
               </span>
-              <span title="Coming soon" className="w-10 h-10 bg-[#4A332E] rounded-full flex items-center justify-center opacity-40 cursor-not-allowed">
+              <span title="Coming soon" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center opacity-40 cursor-not-allowed">
                 <Twitter className="w-5 h-5" />
               </span>
             </div>
@@ -72,6 +86,25 @@ export function Footer() {
               </li>
             </ul>
           </div>
+        </div>
+
+        {/* Web Dev Promo */}
+        <div className="mt-10 bg-gradient-to-r from-[#F9A825]/15 to-[#F9A825]/5 border border-[#F9A825]/40 rounded-xl px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 bg-[#F9A825]/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <Code2 className="w-5 h-5 text-[#F9A825]" />
+            </div>
+            <p className="text-white font-medium">
+              Need a website for your business — e-commerce or otherwise?{' '}
+              <span className="text-[#F9A825] font-semibold">We build those too.</span>
+            </p>
+          </div>
+          <a
+            href="/contact?subject=Website%20%2F%20App%20Development"
+            className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-[#F9A825] text-[#3E2723] font-bold rounded-lg hover:bg-[#FFB300] transition-colors shadow-sm"
+          >
+            Get in touch <ArrowRight className="w-4 h-4" />
+          </a>
         </div>
 
         {/* Bottom Bar */}

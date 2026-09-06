@@ -1,6 +1,9 @@
 import { Shield, Home, LogOut, LayoutDashboard, Package, Settings, Upload, Image, ClipboardList, Mail } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
+export const NEWSLETTER_LAST_SEEN_KEY = 'pp_admin_newsletter_last_seen';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -9,16 +12,32 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children, activePage }: AdminLayoutProps) {
   const { user, logout } = useAuth();
+  const [newSubscriberCount, setNewSubscriberCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch(`${API_URL}/api/newsletter/subscribers`, {
+      headers: { 'Authorization': `Bearer ${user.token}` },
+    })
+      .then(res => res.ok ? res.json() : [])
+      .then((subs: { subscribedAt: string }[]) => {
+        const lastSeen = localStorage.getItem(NEWSLETTER_LAST_SEEN_KEY);
+        const lastSeenTime = lastSeen ? new Date(lastSeen).getTime() : 0;
+        setNewSubscriberCount(subs.filter(s => new Date(s.subscribedAt).getTime() > lastSeenTime).length);
+      })
+      .catch(() => {});
+  }, [user]);
+
   if (!user) return null;
 
   const navItems = [
-    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
-    { id: 'orders' as const, label: 'Orders', icon: ClipboardList, href: '/admin/orders' },
-    { id: 'products' as const, label: 'Products', icon: Package, href: '/admin/products' },
-    { id: 'import' as const, label: 'Import', icon: Upload, href: '/admin/import' },
-    { id: 'hero' as const, label: 'Hero Section', icon: Image, href: '/admin/hero' },
-    { id: 'newsletter' as const, label: 'Newsletter', icon: Mail, href: '/admin/newsletter' },
-    { id: 'settings' as const, label: 'Settings', icon: Settings, href: '/admin/settings' },
+    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard', badge: 0 },
+    { id: 'orders' as const, label: 'Orders', icon: ClipboardList, href: '/admin/orders', badge: 0 },
+    { id: 'products' as const, label: 'Products', icon: Package, href: '/admin/products', badge: 0 },
+    { id: 'import' as const, label: 'Import', icon: Upload, href: '/admin/import', badge: 0 },
+    { id: 'hero' as const, label: 'Hero Section', icon: Image, href: '/admin/hero', badge: 0 },
+    { id: 'newsletter' as const, label: 'Newsletter', icon: Mail, href: '/admin/newsletter', badge: newSubscriberCount },
+    { id: 'settings' as const, label: 'Settings', icon: Settings, href: '/admin/settings', badge: 0 },
   ];
 
   return (
@@ -70,6 +89,11 @@ export function AdminLayout({ children, activePage }: AdminLayoutProps) {
                 >
                   <item.icon className="w-4 h-4" />
                   {item.label}
+                  {item.badge > 0 && (
+                    <span className="bg-[#D32F2F] text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">
+                      {item.badge}
+                    </span>
+                  )}
                 </a>
               ))}
             </nav>

@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Mail, MapPin, Send, CheckCircle } from 'lucide-react';
 
 export function ContactPage() {
+  const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    subject: '',
+    subject: searchParams.get('subject') || '',
     message: '',
   });
   const [submitted, setSubmitted] = useState(false);
@@ -43,12 +45,12 @@ export function ContactPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#3E2723] via-[#4E342E] to-[#3E2723]">
+    <div className="min-h-screen bg-white">
       {/* Hero */}
-      <div className="pt-16 pb-10 text-white">
+      <div className="pt-16 pb-10">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl font-bold mb-3">Contact Us</h1>
-          <p className="text-white/70 text-lg max-w-xl mx-auto">
+          <h1 className="text-4xl font-bold mb-3 text-[#3E2723]">Contact Us</h1>
+          <p className="text-gray-500 text-lg max-w-xl mx-auto">
             Have a question or want to place a special order? We'd love to hear from you!
           </p>
         </div>
@@ -59,29 +61,29 @@ export function ContactPage() {
 
           {/* Info cards */}
           <div className="space-y-5">
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 flex items-start gap-4">
-              <div className="w-11 h-11 bg-[#F9A825]/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 flex items-start gap-4">
+              <div className="w-11 h-11 bg-[#F9A825]/15 rounded-full flex items-center justify-center flex-shrink-0">
                 <MapPin className="w-5 h-5 text-[#F9A825]" />
               </div>
               <div>
-                <p className="font-semibold text-white">Location</p>
-                <p className="text-white/60 text-sm mt-1">Dunedin, New Zealand</p>
+                <p className="font-semibold text-[#3E2723]">Location</p>
+                <p className="text-gray-500 text-sm mt-1">Dunedin, New Zealand</p>
               </div>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 flex items-start gap-4">
-              <div className="w-11 h-11 bg-[#F9A825]/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 flex items-start gap-4">
+              <div className="w-11 h-11 bg-[#F9A825]/15 rounded-full flex items-center justify-center flex-shrink-0">
                 <Mail className="w-5 h-5 text-[#F9A825]" />
               </div>
               <div>
-                <p className="font-semibold text-white">Email</p>
-                <p className="text-white/60 text-sm mt-1">We'll reply as soon as possible</p>
+                <p className="font-semibold text-[#3E2723]">Email</p>
+                <p className="text-gray-500 text-sm mt-1">We'll reply as soon as possible</p>
               </div>
             </div>
           </div>
 
           {/* Form */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-xl p-8">
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
             {submitted ? (
               <div className="flex flex-col items-center justify-center h-full py-12 text-center gap-4">
                 <CheckCircle className="w-16 h-16 text-green-500" />
@@ -141,6 +143,7 @@ export function ContactPage() {
                     <option value="Product Availability">Product Availability</option>
                     <option value="Delivery Question">Delivery Question</option>
                     <option value="Feedback">Feedback</option>
+                    <option value="Website / App Development">Website / App Development</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>

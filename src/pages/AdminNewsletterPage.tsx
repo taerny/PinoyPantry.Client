@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Mail, Copy, Check } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { AdminLayout } from '../components/AdminLayout';
+import { AdminLayout, NEWSLETTER_LAST_SEEN_KEY } from '../components/AdminLayout';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
@@ -28,6 +28,7 @@ export function AdminNewsletterPage() {
         headers: { 'Authorization': `Bearer ${user.token}` },
       });
       if (res.ok) setSubscribers(await res.json());
+      localStorage.setItem(NEWSLETTER_LAST_SEEN_KEY, new Date().toISOString());
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }

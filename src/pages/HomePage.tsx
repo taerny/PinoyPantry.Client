@@ -56,7 +56,7 @@ export function HomePage() {
             </div>
             <button 
               onClick={() => navigate('/category/all-products')}
-              className="hidden md:flex items-center gap-2 bg-[#D32F2F] text-white px-6 py-3 rounded-full hover:bg-[#B71C1C] transition-all hover:gap-3 shadow-lg hover:shadow-xl font-medium"
+              className="hidden md:flex items-center gap-2 bg-[#3E2723] text-white px-6 py-3 rounded-full hover:bg-[#4A332E] transition-all hover:gap-3 shadow-lg hover:shadow-xl font-medium"
             >
               View All Products
               <span>→</span>
@@ -85,12 +85,12 @@ export function HomePage() {
       </section>
 
       {/* Newsletter - Enhanced */}
-      <section className="py-20 relative overflow-hidden bg-gradient-to-br from-[#4A332E] via-[#3E2723] to-[#4A332E]">
+      <section className="py-20 relative overflow-hidden bg-gradient-to-br from-[#D32F2F] via-[#B71C1C] to-[#D32F2F]">
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
         </div>
-        
+
         <div className="container mx-auto px-4 text-center relative z-10">
           <div className="max-w-3xl mx-auto">
             <span className="inline-block px-4 py-1 bg-[#F9A825] text-[#3E2723] text-sm font-semibold rounded-full mb-6">
@@ -99,7 +99,7 @@ export function HomePage() {
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
               Stay Updated with PinoyPantry
             </h2>
-            <p className="text-xl mb-10 text-gray-300">
+            <p className="text-xl mb-10 text-white">
               Subscribe to our newsletter and get exclusive deals, new product updates, and Filipino food recipes!
             </p>
             <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
@@ -109,7 +109,7 @@ export function HomePage() {
                 onChange={e => setNewsletterEmail(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleSubscribe(); }}
                 placeholder="Enter your email address"
-                className="flex-1 px-6 py-4 rounded-full border-2 border-white/20 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#F9A825] bg-white/10 backdrop-blur-sm"
+                className="flex-1 px-6 py-4 rounded-full border-2 border-white/30 text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-[#F9A825] bg-white/10 backdrop-blur-sm"
               />
               <button
                 onClick={handleSubscribe}
@@ -120,7 +120,7 @@ export function HomePage() {
               </button>
             </div>
             {subscribeMessage && (
-              <p className={`mt-4 text-sm font-medium ${subscribeMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+              <p className={`mt-4 text-sm font-medium ${subscribeMessage.type === 'success' ? 'text-green-200' : 'text-yellow-200'}`}>
                 {subscribeMessage.text}
               </p>
             )}

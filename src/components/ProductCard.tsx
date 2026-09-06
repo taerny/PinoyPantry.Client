@@ -42,7 +42,7 @@ export function ProductCard({ id, name, price, originalPrice, image, badge, rati
         <ImageWithFallback
           src={image}
           alt={name}
-          className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-300 ${isSoldOut ? 'grayscale opacity-60' : ''}`}
+          className={`w-full h-full object-contain group-hover:scale-110 transition-transform duration-300 ${isSoldOut ? 'grayscale opacity-60' : ''}`}
         />
         {badge && (
           <span className="absolute top-2 left-2 bg-[#D32F2F] text-white px-2 py-0.5 rounded-full text-xs">
@@ -95,19 +95,19 @@ export function ProductCard({ id, name, price, originalPrice, image, badge, rati
           )}
         </div>
 
-        {/* Add to Cart Button - Smaller */}
+        {/* Add to Cart Button */}
         <button
           onClick={handleAddToCart}
           disabled={isSoldOut}
-          className={`w-full py-1.5 rounded text-xs transition-all flex items-center justify-center gap-1.5 ${
+          className={`w-full py-2 md:py-3 rounded-md text-xs md:text-sm font-semibold tracking-wide transition-all flex items-center justify-center gap-1.5 md:gap-2 shadow-sm ${
             isSoldOut
               ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
               : isAdding
               ? 'bg-green-600 text-white'
-              : 'bg-[#3E2723] text-white hover:bg-[#4A332E]'
+              : 'bg-[#3E2723] text-white hover:bg-[#4A332E] hover:shadow-md'
           }`}
         >
-          {!isSoldOut && <ShoppingCart className="w-3.5 h-3.5" />}
+          {!isSoldOut && <ShoppingCart className="w-3.5 h-3.5 md:w-4 md:h-4" />}
           {isSoldOut ? 'Sold Out' : isAdding ? 'Added!' : 'Add to Cart'}
         </button>
       </div>
