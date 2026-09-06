@@ -7,6 +7,8 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
 const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Dried Fish'];
 
+const GST_RATE = 0.15;
+
 interface Product {
   id: number;
   name: string;
@@ -19,10 +21,17 @@ interface Product {
   isPublished: boolean;
   recommendedRetail: number | null;
   margin: number | null; // fraction, e.g. 0.27 = 27%
+  code: string | null;
+  qty: number | null; // pack size the Subtotal covers, e.g. 18 units/carton
+  subtotal: number | null; // locked supplier invoice line amount
+  profitAmount: number; // computed from the actual Price, not recommendedRetail
+  gstAmount: number;
+  gstRate: number;
 }
 
-// Category, Cost, Recommended Retail and Margin are supplier-sourced facts, not something an
-// admin should casually overwrite after the fact — only Price and Stock get quick inline edits.
+// Category, Margin and Qty are admin-editable any time; Code/Subtotal are locked reference
+// data from the supplier invoice; Cost Price is derived from Subtotal/Qty when both are set.
+// Only Price and Stock get quick inline edits from the table.
 type InlineField = 'price' | 'stockQuantity';
 
 interface InlineEdit {
@@ -31,7 +40,7 @@ interface InlineEdit {
   value: string;
 }
 
-const EMPTY_FORM = { name: '', description: '', price: '', costPrice: '', category: '', stockQuantity: '', imageUrl: '', isPublished: false, recommendedRetail: '', margin: '' };
+const EMPTY_FORM = { name: '', description: '', price: '', costPrice: '', category: '', imageUrl: '', isPublished: false, margin: '', code: '', qty: '', subtotal: '' };
 
 // Reads a failed fetch Response and returns a human-readable message.
 // Handles both { message: "..." } and FluentValidation's
@@ -103,13 +112,15 @@ export function AdminProductsPage() {
       name: form.name,
       description: form.description,
       price: parseFloat(form.price) || 0,
-      costPrice: parseFloat(form.costPrice) || 0,
+      costPrice: effectiveCostPrice,
       category: form.category,
-      stockQuantity: parseInt(form.stockQuantity) || 0,
+      stockQuantity: parseInt(form.qty, 10) || 0,
       imageUrl: form.imageUrl,
       isPublished: form.isPublished,
-      recommendedRetail: form.recommendedRetail === '' ? null : parseFloat(form.recommendedRetail) || 0,
       margin: form.margin === '' ? null : (parseFloat(form.margin) || 0) / 100,
+      code: form.code || null,
+      qty: form.qty === '' ? null : parseInt(form.qty, 10) || null,
+      subtotal: form.subtotal === '' ? null : parseFloat(form.subtotal),
     };
 
     try {
@@ -217,8 +228,10 @@ export function AdminProductsPage() {
       stockQuantity: inlineEdit.field === 'stockQuantity' ? parseInt(inlineEdit.value, 10) || (product.stockQuantity ?? 0) : (product.stockQuantity ?? 0),
       category: product.category ?? '',
       isPublished: product.isPublished ?? false,
-      recommendedRetail: product.recommendedRetail,
       margin: product.margin,
+      code: product.code,
+      qty: product.qty,
+      subtotal: product.subtotal,
     };
 
     setInlineEdit(null);
@@ -262,8 +275,10 @@ export function AdminProductsPage() {
           stockQuantity: product.stockQuantity ?? 0,
           category: product.category ?? '',
           isPublished: nextPublished,
-          recommendedRetail: product.recommendedRetail,
           margin: product.margin,
+          code: product.code,
+          qty: product.qty,
+          subtotal: product.subtotal,
         }),
       });
       if (!res.ok) throw new Error(await extractErrorMessage(res, 'Failed to update publish status.'));
@@ -281,11 +296,12 @@ export function AdminProductsPage() {
       price: String(product.price ?? 0),
       costPrice: String(product.costPrice ?? 0),
       category: product.category ?? '',
-      stockQuantity: String(product.stockQuantity ?? 0),
       imageUrl: product.imageUrl ?? '',
       isPublished: product.isPublished ?? false,
-      recommendedRetail: product.recommendedRetail === null || product.recommendedRetail === undefined ? '' : String(product.recommendedRetail),
       margin: product.margin === null || product.margin === undefined ? '' : String(Math.round(product.margin * 1000) / 10),
+      code: product.code ?? '',
+      qty: String(product.qty ?? product.stockQuantity ?? 0),
+      subtotal: product.subtotal === null || product.subtotal === undefined ? '' : String(product.subtotal),
     });
     setEditingId(product.id);
     setShowForm(true);
@@ -300,13 +316,28 @@ export function AdminProductsPage() {
   if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>;
   if (!user || !isAdmin) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-center"><h2 className="text-xl font-bold text-[#3E2723] mb-2">Access Denied</h2><a href="/login" className="text-[#D32F2F] hover:underline">Go to Login</a></div></div>;
 
+  // Live pricing preview — mirrors PricingCalculator.cs exactly, purely for instant UX feedback.
+  // The server recomputes RecommendedRetail authoritatively on save regardless of this preview.
+  const parsedSubtotal = form.subtotal === '' ? null : parseFloat(form.subtotal);
+  const parsedQty = form.qty === '' ? null : parseInt(form.qty, 10);
+  const derivedCostPrice = (parsedSubtotal !== null && parsedQty !== null && parsedQty > 0) ? parsedSubtotal / parsedQty : null;
+  const effectiveCostPrice = derivedCostPrice !== null ? derivedCostPrice : (parseFloat(form.costPrice) || 0);
+  const parsedMarginPct = form.margin === '' ? null : parseFloat(form.margin);
+  const recommendedPricePreview = (parsedMarginPct !== null && parsedMarginPct < 100)
+    ? (effectiveCostPrice / (1 - parsedMarginPct / 100)) / (1 - GST_RATE)
+    : null;
+  const currentPrice = parseFloat(form.price) || 0;
+  const priceBreakdown = currentPrice > 0
+    ? { profitAmount: currentPrice * (1 - GST_RATE) - effectiveCostPrice, gstAmount: currentPrice * GST_RATE }
+    : null;
+
   return (
     <AdminLayout activePage="products">
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-bold text-[#3E2723]">Product Management</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Click price or stock to edit inline. Category, cost, recommended retail and margin come from supplier data and are locked once a product exists.</p>
+            <p className="text-xs text-gray-400 mt-0.5">Click price or stock to edit inline. Open a product to set Quantity/Margin from the supplier invoice — Cost Price and Recommended Retail are always auto-computed from those.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -380,92 +411,99 @@ export function AdminProductsPage() {
                   </div>
                 </div>
 
-                {/* What admin can actually change — the visual focus of this form */}
+                <div className="rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Tag className="w-3.5 h-3.5 text-gray-400" />
+                    <h4 className="text-sm font-bold text-gray-600">Category</h4>
+                  </div>
+                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required>
+                    <option value="">Select category</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+
+                {/* From-supplier pricing flow: admin transcribes Code/Subtotal from the invoice
+                    and enters Quantity — Cost Price is then always auto-derived (Subtotal ÷
+                    Qty) and never directly editable. Margin is a plain net-profit percent
+                    (e.g. 20 for 20%, not 0.20) — GST is added automatically, never typed. */}
+                <div className="rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Tag className="w-3.5 h-3.5 text-gray-400" />
+                    <h4 className="text-sm font-bold text-gray-600">Pricing (from supplier invoice)</h4>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Code</label>
+                      <input type="text" value={form.code} onChange={e => setForm({ ...form, code: e.target.value })} placeholder="e.g. UFC-0001-018" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Invoice Subtotal ($)</label>
+                      <input type="number" step="0.01" min="0" value={form.subtotal} onChange={e => setForm({ ...form, subtotal: e.target.value })} placeholder="From invoice" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Quantity</label>
+                      <input type="number" min="0" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value })} placeholder="e.g. 18" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
+                      <p className="mt-1 text-[10px] text-gray-400">Also sets stock on hand</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" /> Cost Price ($)
+                      </label>
+                      <p className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-sm font-medium text-gray-600">
+                        {derivedCostPrice !== null ? `$${derivedCostPrice.toFixed(2)}` : '—'}
+                      </p>
+                      <p className="mt-1 text-[10px] text-gray-400">Auto: Subtotal ÷ Quantity</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Profit Margin</label>
+                      <input type="number" step="0.1" min="0" max="99" value={form.margin} onChange={e => setForm({ ...form, margin: e.target.value })} placeholder="e.g. 20" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
+                      <p className="mt-1 text-[10px] text-gray-400">Enter as a whole % — 20 means 20%, not 0.20. Net profit only; GST (15%) is added automatically.</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" /> Recommended Retail
+                      </label>
+                      <p className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-sm font-medium text-gray-600">
+                        {recommendedPricePreview !== null ? `$${recommendedPricePreview.toFixed(2)}` : '—'}
+                      </p>
+                      <p className="mt-1 text-[10px] text-gray-400">Auto: Cost + Margin + GST</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* The one thing this whole form exists to set — the actual price customers pay. */}
                 <div className="rounded-xl border-2 border-[#D32F2F]/25 bg-[#D32F2F]/5 p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-6 h-6 rounded-full bg-[#D32F2F] flex items-center justify-center flex-shrink-0">
                       <Pencil className="w-3 h-3 text-white" />
                     </div>
-                    <h4 className="text-sm font-bold text-[#3E2723]">Your Price &amp; Stock</h4>
+                    <h4 className="text-sm font-bold text-[#3E2723]">Store Price</h4>
                     <span className="ml-auto text-[10px] font-semibold text-[#D32F2F] bg-white px-2 py-0.5 rounded-full border border-[#D32F2F]/20">EDITABLE</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1">
                       <label className="block text-xs font-medium text-gray-500 mb-1">Selling Price ($)</label>
                       <input type="number" step="0.01" min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="w-full px-3 py-2 text-lg font-bold text-[#3E2723] bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Stock Quantity</label>
-                      <input type="number" min="0" value={form.stockQuantity} onChange={e => setForm({ ...form, stockQuantity: e.target.value })} className="w-full px-3 py-2 text-lg font-bold text-[#3E2723] bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
-                    </div>
+                    {recommendedPricePreview !== null && (
+                      <button type="button" onClick={() => setForm(f => ({ ...f, price: recommendedPricePreview!.toFixed(2) }))} className="mb-0.5 px-3 py-2 text-xs font-medium text-[#D32F2F] border border-[#D32F2F]/30 rounded-lg hover:bg-white whitespace-nowrap">
+                        Use recommended
+                      </button>
+                    )}
                   </div>
+                  {priceBreakdown && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      Actual profit ${priceBreakdown.profitAmount.toFixed(2)}, GST ${priceBreakdown.gstAmount.toFixed(2)} (15%) at this price
+                    </p>
+                  )}
                 </div>
-
-                {editingId && (
-                  <div className="rounded-xl border border-gray-200 p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Tag className="w-3.5 h-3.5 text-gray-400" />
-                      <h4 className="text-sm font-bold text-gray-600">Category</h4>
-                      <span className="ml-auto text-[10px] font-semibold text-[#D32F2F] bg-white px-2 py-0.5 rounded-full border border-[#D32F2F]/20">EDITABLE</span>
-                    </div>
-                    <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required>
-                      <option value="">Select category</option>
-                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                )}
-
-                {/* Cost/retail/margin are supplier-sourced facts — locked once the product exists, editable only at creation */}
-                {editingId ? (
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Lock className="w-3.5 h-3.5 text-gray-400" />
-                      <h4 className="text-sm font-bold text-gray-500">Supplier Data</h4>
-                      <span className="ml-auto text-[10px] font-semibold text-gray-400 bg-white px-2 py-0.5 rounded-full border border-gray-200">LOCKED</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-y-3 gap-x-4">
-                      <div>
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase">Cost Price</p>
-                        <p className="text-sm font-medium text-gray-600 mt-0.5">${(parseFloat(form.costPrice) || 0).toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase">Recommended Retail</p>
-                        <p className="text-sm font-medium text-gray-600 mt-0.5">{form.recommendedRetail ? `$${(parseFloat(form.recommendedRetail) || 0).toFixed(2)}` : '—'}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase">Margin</p>
-                        <p className="text-sm font-medium text-gray-600 mt-0.5">{form.margin ? `${(parseFloat(form.margin) || 0).toFixed(1)}%` : '—'}</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-gray-200 p-4">
-                    <h4 className="text-sm font-bold text-gray-600 mb-3">Sourcing Details <span className="font-normal text-gray-400">(optional, sets the basis for future imports)</span></h4>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Cost Price ($)</label>
-                        <input type="number" step="0.01" min="0" value={form.costPrice} onChange={e => setForm({ ...form, costPrice: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
-                        <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required>
-                          <option value="">Select category</option>
-                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Recommended Retail ($)</label>
-                        <input type="number" step="0.01" min="0" value={form.recommendedRetail} onChange={e => setForm({ ...form, recommendedRetail: e.target.value })} placeholder="Optional" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Margin (%)</label>
-                        <input type="number" step="0.1" min="0" value={form.margin} onChange={e => setForm({ ...form, margin: e.target.value })} placeholder="Optional" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <label className="flex items-center justify-between p-3.5 rounded-xl border cursor-pointer hover:bg-gray-50 transition-colors">
                   <div>
