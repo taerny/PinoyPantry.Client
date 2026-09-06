@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lock, Check, AlertCircle, Mail, Clock, Calendar, Shield as ShieldIcon } from 'lucide-react';
+import { Lock, Check, AlertCircle, Mail, Clock, Calendar, Shield as ShieldIcon, Landmark } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AdminLayout } from '../components/AdminLayout';
 
@@ -15,6 +15,12 @@ interface Profile {
   lastLoginAt: string | null;
 }
 
+interface BankDetails {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+}
+
 export function AdminSettingsPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -23,8 +29,15 @@ export function AdminSettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [changing, setChanging] = useState(false);
 
+  const [bankDetails, setBankDetails] = useState<BankDetails>({ bankName: '', accountName: '', accountNumber: '' });
+  const [bankMessage, setBankMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [savingBank, setSavingBank] = useState(false);
+
   useEffect(() => {
-    if (!authLoading && user && isAdmin) fetchProfile();
+    if (!authLoading && user && isAdmin) {
+      fetchProfile();
+      fetchBankDetails();
+    }
   }, [authLoading, user, isAdmin]);
 
   async function fetchProfile() {
@@ -35,6 +48,36 @@ export function AdminSettingsPage() {
       if (res.ok) setProfile(await res.json());
     } catch { /* ignore */ }
     finally { setLoading(false); }
+  }
+
+  async function fetchBankDetails() {
+    try {
+      const res = await fetch(`${API_URL}/api/bank-details`);
+      if (res.ok) setBankDetails(await res.json());
+    } catch { /* ignore */ }
+  }
+
+  async function handleSaveBankDetails(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user) return;
+    setBankMessage(null);
+    setSavingBank(true);
+    try {
+      const res = await fetch(`${API_URL}/api/bank-details`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
+        body: JSON.stringify(bankDetails),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to save payment details.');
+      }
+      setBankMessage({ type: 'success', text: 'Payment details saved — used on checkout, invoices, and order emails from now on.' });
+    } catch (err: any) {
+      setBankMessage({ type: 'error', text: err.message || 'Failed to save payment details.' });
+    } finally {
+      setSavingBank(false);
+    }
   }
 
   async function handleChangePassword(e: React.FormEvent) {
@@ -154,6 +197,41 @@ export function AdminSettingsPage() {
             </div>
             <button type="submit" disabled={changing} className="px-6 py-2.5 bg-[#3E2723] text-white rounded-xl text-sm font-medium hover:bg-[#2C1A17] transition-colors disabled:opacity-50">
               {changing ? 'Changing...' : 'Change Password'}
+            </button>
+          </form>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border mt-6">
+          <div className="p-5 border-b">
+            <h3 className="font-semibold text-[#3E2723] flex items-center gap-2">
+              <Landmark className="w-4 h-4" />
+              Payment Details
+            </h3>
+            <p className="text-xs text-gray-400 mt-1">Bank account shown to customers on checkout, invoices, and order emails for bank transfer payments.</p>
+          </div>
+
+          {bankMessage && (
+            <div className={`mx-5 mt-4 p-3 rounded-lg flex items-center gap-2 text-sm ${bankMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+              {bankMessage.type === 'success' ? <Check className="w-4 h-4 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
+              {bankMessage.text}
+            </div>
+          )}
+
+          <form onSubmit={handleSaveBankDetails} className="p-5 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+              <input type="text" value={bankDetails.bankName} onChange={e => setBankDetails({ ...bankDetails, bankName: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
+              <input type="text" value={bankDetails.accountName} onChange={e => setBankDetails({ ...bankDetails, accountName: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+              <input type="text" value={bankDetails.accountNumber} onChange={e => setBankDetails({ ...bankDetails, accountNumber: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
+            </div>
+            <button type="submit" disabled={savingBank} className="px-6 py-2.5 bg-[#3E2723] text-white rounded-xl text-sm font-medium hover:bg-[#2C1A17] transition-colors disabled:opacity-50">
+              {savingBank ? 'Saving...' : 'Save Payment Details'}
             </button>
           </form>
         </div>
