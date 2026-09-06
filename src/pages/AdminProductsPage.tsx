@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Pencil, Trash2, X, Check, AlertCircle, Package, Upload, Image as ImageIcon, Lock, Tag, Search, ClipboardList } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, AlertCircle, AlertTriangle, Package, Upload, Image as ImageIcon, Lock, Tag, Search, ClipboardList, Store } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AdminLayout } from '../components/AdminLayout';
 
@@ -8,6 +8,25 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Dried Fish'];
 
 const GST_RATE = 0.15;
+
+// Price-mismatch "Ignore" is remembered per-browser (same pattern as the Newsletter/Pasabuy
+// unseen badges) — no backend change needed. Stores the exact price/recommendedRetail pair
+// at the time it was ignored, so if either number changes later (new margin, new invoice),
+// that's treated as a genuinely new situation and gets flagged again automatically.
+const IGNORE_KEY = 'pp_admin_price_review_ignored';
+
+interface IgnoredMismatch {
+  price: number;
+  recommendedRetail: number;
+}
+
+function loadIgnoredMismatches(): Record<number, IgnoredMismatch> {
+  try {
+    return JSON.parse(localStorage.getItem(IGNORE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
 
 interface Product {
   id: number;
@@ -40,7 +59,7 @@ interface InlineEdit {
   value: string;
 }
 
-const EMPTY_FORM = { name: '', description: '', price: '', costPrice: '', category: '', imageUrl: '', isPublished: false, margin: '', code: '', qty: '', subtotal: '' };
+const EMPTY_FORM = { name: '', description: '', price: '', costPrice: '', category: '', imageUrl: '', isPublished: false, margin: '', code: '', qty: '', subtotal: '', stockQuantity: '0' };
 
 // Reads a failed fetch Response and returns a human-readable message.
 // Handles both { message: "..." } and FluentValidation's
@@ -73,8 +92,12 @@ export function AdminProductsPage() {
   // already had a saved price. Typing directly into Store Price flips this off immediately,
   // making it independent for the rest of this session.
   const [priceOverridden, setPriceOverridden] = useState(false);
+  const [stockQtyOverridden, setStockQtyOverridden] = useState(false);
+  const [qtyEdited, setQtyEdited] = useState(false);
+  const [pricingTab, setPricingTab] = useState<'supplier' | 'store'>('supplier');
   const [search, setSearch] = useState('');
   const [showReview, setShowReview] = useState(false);
+  const [ignoredMismatches, setIgnoredMismatches] = useState<Record<number, IgnoredMismatch>>(() => loadIgnoredMismatches());
 
   // Inline editing state
   const [inlineEdit, setInlineEdit] = useState<InlineEdit | null>(null);
@@ -139,7 +162,7 @@ export function AdminProductsPage() {
       price: parseFloat(form.price) || 0,
       costPrice: effectiveCostPrice,
       category: form.category,
-      stockQuantity: parseInt(form.qty, 10) || 0,
+      stockQuantity: parseInt(form.stockQuantity, 10) || 0,
       imageUrl: form.imageUrl,
       isPublished: form.isPublished,
       margin: form.margin === '' ? null : (parseFloat(form.margin) || 0) / 100,
@@ -262,6 +285,56 @@ export function AdminProductsPage() {
 
   function cancelInline() { setInlineEdit(null); }
 
+  // ── Store Review: ignore a price mismatch (per-browser, see IGNORE_KEY above) ──
+  function ignoreMismatch(product: Product) {
+    const next = { ...ignoredMismatches, [product.id]: { price: product.price, recommendedRetail: product.recommendedRetail ?? 0 } };
+    setIgnoredMismatches(next);
+    localStorage.setItem(IGNORE_KEY, JSON.stringify(next));
+  }
+
+  function unignoreMismatch(productId: number) {
+    const next = { ...ignoredMismatches };
+    delete next[productId];
+    setIgnoredMismatches(next);
+    localStorage.setItem(IGNORE_KEY, JSON.stringify(next));
+  }
+
+  // ── Store Review: one-click "match recommended" ─────────────────────────────
+  async function applyRecommendedPrice(product: Product) {
+    if (!user || product.recommendedRetail === null || product.recommendedRetail === undefined) return;
+    const newPrice = product.recommendedRetail;
+
+    const updated = {
+      name: product.name ?? '',
+      description: product.description ?? '',
+      imageUrl: product.imageUrl ?? '',
+      price: newPrice,
+      costPrice: product.costPrice ?? 0,
+      stockQuantity: product.stockQuantity ?? 0,
+      category: product.category ?? '',
+      isPublished: product.isPublished ?? false,
+      margin: product.margin,
+      code: product.code,
+      qty: product.qty,
+      subtotal: product.subtotal,
+    };
+
+    setProducts(prev => prev.map(p => p.id === product.id ? { ...p, price: newPrice } : p));
+
+    try {
+      const res = await fetch(`${API_URL}/api/products/${product.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
+        body: JSON.stringify(updated),
+      });
+      if (!res.ok) throw new Error(await extractErrorMessage(res, 'Failed to update price.'));
+      setMessage({ type: 'success', text: `${product.name} — Store Price set to recommended.` });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update price.' });
+      fetchProducts(); // revert on failure
+    }
+  }
+
   // ── Publish toggle ───────────────────────────────────────────────────────────
   async function togglePublish(product: Product) {
     if (!user) return;
@@ -307,12 +380,16 @@ export function AdminProductsPage() {
       isPublished: product.isPublished ?? false,
       margin: product.margin === null || product.margin === undefined ? '' : String(Math.round(product.margin * 1000) / 10),
       code: product.code ?? '',
-      qty: String(product.qty ?? product.stockQuantity ?? 0),
+      qty: product.qty === null || product.qty === undefined ? '' : String(product.qty),
       subtotal: product.subtotal === null || product.subtotal === undefined ? '' : String(product.subtotal),
+      stockQuantity: String(product.stockQuantity ?? 0),
     });
     setEditingId(product.id);
     setShowForm(true);
     setPriceOverridden(false);
+    setStockQtyOverridden(false);
+    setQtyEdited(false);
+    setPricingTab('supplier');
   }
 
   function openAdd() {
@@ -323,6 +400,9 @@ export function AdminProductsPage() {
     setEditingId(null);
     setShowForm(true);
     setPriceOverridden(false);
+    setStockQtyOverridden(false);
+    setQtyEdited(false);
+    setPricingTab('supplier');
   }
 
   // Hides the modal without discarding in-progress input — only wipes the form if we were
@@ -374,6 +454,18 @@ export function AdminProductsPage() {
     }
   }, [recommendedPricePreview, priceOverridden]);
 
+  // Keep Store Quantity in sync with Invoice Qty — but ONLY once the admin actively types a
+  // new Invoice Qty this session (qtyEdited), never just from opening the modal. Unlike Store
+  // Price/Recommended Retail, Invoice Qty is often already-loaded and unchanged for an existing
+  // product whose real stock has since diverged (sold down, restocked); syncing on open would
+  // silently overwrite accurate stock with the old invoice number. Once triggered, it still
+  // stops following as soon as the admin types directly into Store Quantity themselves.
+  useEffect(() => {
+    if (qtyEdited && !stockQtyOverridden && parsedQty !== null && parsedQty >= 0) {
+      setForm(f => ({ ...f, stockQuantity: String(parsedQty) }));
+    }
+  }, [parsedQty, qtyEdited, stockQtyOverridden]);
+
   if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>;
   if (!user || !isAdmin) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-center"><h2 className="text-xl font-bold text-[#3E2723] mb-2">Access Denied</h2><a href="/login" className="text-[#D32F2F] hover:underline">Go to Login</a></div></div>;
 
@@ -389,7 +481,12 @@ export function AdminProductsPage() {
   // Price mismatches: Store Price differs meaningfully (1+ cent) from the computed
   // Recommended Retail. Status is based on the GST-exclusive price vs Cost, same rule as the
   // edit modal's trap — "below recommended" isn't necessarily a problem, "below cost" is.
-  const priceMismatches = products
+  function isCurrentlyIgnored(p: Product): boolean {
+    const ignored = ignoredMismatches[p.id];
+    return !!ignored && Math.abs(ignored.price - p.price) < 0.001 && Math.abs(ignored.recommendedRetail - (p.recommendedRetail ?? 0)) < 0.001;
+  }
+
+  const allMismatches = products
     .filter(p => p.recommendedRetail !== null && Math.abs(p.price - p.recommendedRetail) >= 0.01)
     .map(p => {
       const priceBeforeGst = p.price * (1 - GST_RATE);
@@ -400,6 +497,9 @@ export function AdminProductsPage() {
     })
     .sort((a, b) => (a.isLoss === b.isLoss ? 0 : a.isLoss ? -1 : 1));
 
+  const priceMismatches = allMismatches.filter(m => !isCurrentlyIgnored(m.product));
+  const ignoredMismatchList = allMismatches.filter(m => isCurrentlyIgnored(m.product));
+
   const lowStockProducts = products
     .filter(p => p.stockQuantity <= 5)
     .sort((a, b) => a.stockQuantity - b.stockQuantity);
@@ -409,7 +509,7 @@ export function AdminProductsPage() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-4">
           <h2 className="text-xl font-bold text-[#3E2723]">Product Management</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Click price or stock to edit inline. Open a product to set Quantity/Margin from the supplier invoice — Cost Price and Recommended Retail are always auto-computed from those.</p>
+          <p className="text-xs text-gray-400 mt-0.5">Click price or stock to edit inline. Open a product to set Invoice Qty/Margin from the supplier invoice — Cost Price and Recommended Retail are always auto-computed from those. Stock Quantity is separate and never affects them.</p>
         </div>
 
         <div className="mb-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -528,105 +628,166 @@ export function AdminProductsPage() {
                   </select>
                 </div>
 
-                {/* From-supplier pricing flow: admin transcribes Code/Subtotal from the invoice
-                    and enters Quantity — Cost Price is then always auto-derived (Subtotal ÷
-                    Qty) and never directly editable. Margin is a plain net-profit percent
-                    (e.g. 20 for 20%, not 0.20) — GST is added automatically, never typed. */}
-                <div className="rounded-xl border border-gray-200 p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Tag className="w-3.5 h-3.5 text-gray-400" />
-                    <h4 className="text-sm font-bold text-gray-600">Pricing (from supplier invoice)</h4>
+                {/* Tabs instead of stacking both panels — the combined height made the Store
+                    panel a long scroll away, especially annoying for a quick price/stock edit.
+                    Segmented-control styling (light track + raised active pill) so the two
+                    tabs are unmistakably there, not just a thin underline easy to miss. */}
+                <div className="flex gap-1 p-1 bg-gray-100 border border-gray-200 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setPricingTab('supplier')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                      pricingTab === 'supplier' ? 'bg-white text-amber-700 border border-amber-300 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" /> Supplier
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPricingTab('store')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                      pricingTab === 'store' ? 'bg-white text-blue-700 border border-blue-300 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Store className="w-3.5 h-3.5" /> Store
+                    {(priceIsMissing || priceBelowCost) && <span className="w-1.5 h-1.5 rounded-full bg-red-500" />}
+                  </button>
+                </div>
+
+                {/* From-supplier pricing flow: admin transcribes Code/Subtotal/Qty from the
+                    invoice — Cost Price is then always auto-derived (Subtotal ÷ Qty) and never
+                    directly editable. These are historical invoice numbers, not stock — editing
+                    Store Quantity below never touches them. Margin is a plain net-profit percent
+                    (e.g. 20 for 20%, not 0.20) — GST is added automatically, never typed.
+                    Styled as a "danger zone" since these numbers ripple into Cost Price and
+                    Recommended Retail sitewide — should be touched carefully, not casually. */}
+                {pricingTab === 'supplier' && (
+                <div className="rounded-xl border-2 border-amber-400/60 bg-amber-50/60 p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <h4 className="text-sm font-bold text-amber-800 uppercase tracking-wide">Danger Zone — Supplier Invoice</h4>
                   </div>
+                  <p className="text-[11px] text-amber-700/80 mb-3">Historical numbers from the actual supplier invoice. Changing these recalculates Cost Price and Recommended Retail.</p>
 
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                      <label className="block text-xs font-medium text-amber-700/80 mb-1 flex items-center gap-1">
                         <Lock className="w-2.5 h-2.5" /> Code
                       </label>
-                      <p className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-sm font-medium text-gray-600">{form.code || '—'}</p>
+                      <p className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white/70 text-sm font-medium text-gray-600">{form.code || '—'}</p>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Invoice Subtotal ($)</label>
-                      <input type="number" step="0.01" min="0" value={form.subtotal} onChange={e => setForm({ ...form, subtotal: e.target.value })} placeholder="From invoice" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
+                      <label className="block text-xs font-medium text-amber-700/80 mb-1">Invoice Subtotal ($)</label>
+                      <input type="number" step="0.01" min="0" value={form.subtotal} onChange={e => setForm({ ...form, subtotal: e.target.value })} placeholder="From invoice" className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400" />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Quantity</label>
-                      <input type="number" min="0" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value })} placeholder="e.g. 18" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
-                      <p className="mt-1 text-[10px] text-gray-400">Also sets stock on hand</p>
+                      <label className="block text-xs font-medium text-amber-700/80 mb-1">Invoice Qty</label>
+                      <input
+                        type="number" min="0" value={form.qty}
+                        onChange={e => { setForm({ ...form, qty: e.target.value }); setQtyEdited(true); }}
+                        placeholder="Pack size on the invoice"
+                        className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                      <p className="mt-1 text-[10px] text-amber-700/70">Fixed historical value — doesn't change with stock</p>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                      <label className="block text-xs font-medium text-amber-700/80 mb-1 flex items-center gap-1">
                         <Lock className="w-2.5 h-2.5" /> Cost Price ($)
                       </label>
-                      <p className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-sm font-medium text-gray-600">
-                        {derivedCostPrice !== null ? `$${derivedCostPrice.toFixed(2)}` : '—'}
+                      <p className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white/70 text-sm font-medium text-gray-600">
+                        {derivedCostPrice !== null ? `$${derivedCostPrice.toFixed(2)}` : (form.costPrice ? `$${parseFloat(form.costPrice).toFixed(2)}` : '—')}
                       </p>
-                      <p className="mt-1 text-[10px] text-gray-400">Auto: Subtotal ÷ Quantity</p>
+                      <p className="mt-1 text-[10px] text-amber-700/70">Auto: Subtotal ÷ Invoice Qty</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Profit Margin</label>
-                      <input type="number" step="0.1" min="0" max="99" value={form.margin} onChange={e => setForm({ ...form, margin: e.target.value })} placeholder="e.g. 20" className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" />
-                      <p className="mt-1 text-[10px] text-gray-400">Enter as a whole % — 20 means 20%, not 0.20. Net profit only; GST (15%) is added automatically.</p>
+                      <label className="block text-xs font-medium text-amber-700/80 mb-1">Profit Margin</label>
+                      <input type="number" step="0.1" min="0" max="99" value={form.margin} onChange={e => setForm({ ...form, margin: e.target.value })} placeholder="e.g. 20" className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                      <p className="mt-1 text-[10px] text-amber-700/70">Enter as a whole % — 20 means 20%, not 0.20. Net profit only; GST (15%) is added automatically.</p>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                      <label className="block text-xs font-medium text-amber-700/80 mb-1 flex items-center gap-1">
                         <Lock className="w-2.5 h-2.5" /> Recommended Retail
                       </label>
-                      <p className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-sm font-medium text-gray-600">
+                      <p className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white/70 text-sm font-medium text-gray-600">
                         {recommendedPricePreview !== null ? `$${recommendedPricePreview.toFixed(2)}` : '—'}
                       </p>
-                      <p className="mt-1 text-[10px] text-gray-400">Auto: Cost + Margin + GST</p>
+                      <p className="mt-1 text-[10px] text-amber-700/70">Auto: Cost + Margin + GST</p>
                     </div>
                   </div>
                 </div>
+                )}
 
-                {/* The one thing this whole form exists to set — the actual price customers pay. */}
-                <div className="rounded-xl border-2 border-[#D32F2F]/25 bg-[#D32F2F]/5 p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-6 h-6 rounded-full bg-[#D32F2F] flex items-center justify-center flex-shrink-0">
-                      <Pencil className="w-3 h-3 text-white" />
-                    </div>
-                    <h4 className="text-sm font-bold text-[#3E2723]">Store Price</h4>
-                    <span className="ml-auto text-[10px] font-semibold text-[#D32F2F] bg-white px-2 py-0.5 rounded-full border border-[#D32F2F]/20">EDITABLE</span>
+                {/* Store-facing numbers — safe to edit freely, day to day. Store Quantity
+                    follows Invoice Qty above once the admin actively types a new one (matching
+                    a fresh restock invoice), but never overwrites already-accurate stock just
+                    from opening the modal. */}
+                {pricingTab === 'store' && (
+                <div className="rounded-xl border-2 border-blue-300/60 bg-blue-50/40 p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Store className="w-4 h-4 text-blue-600" />
+                    <h4 className="text-sm font-bold text-blue-800 uppercase tracking-wide">Store — Live</h4>
                   </div>
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Selling Price ($)</label>
-                      <input
-                        type="number" step="0.01" min="0" value={form.price}
-                        onChange={e => { setForm({ ...form, price: e.target.value }); setPriceOverridden(true); }}
-                        className={`w-full px-3 py-2 text-lg font-bold text-[#3E2723] bg-white border rounded-lg focus:outline-none focus:ring-2 ${
-                          priceIsMissing || priceBelowCost ? 'border-red-400 focus:ring-red-300' : 'focus:ring-[#F9A825]'
-                        }`}
-                        required
-                      />
+
+                  <div>
+                    <label className="block text-xs font-medium text-blue-700/80 mb-1">Store Quantity</label>
+                    <input
+                      type="number" min="0" value={form.stockQuantity}
+                      onChange={e => { setForm({ ...form, stockQuantity: e.target.value }); setStockQtyOverridden(true); }}
+                      className="w-full px-3 py-2 border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      required
+                    />
+                    <p className="mt-1 text-[10px] text-blue-700/70">Actual quantity on hand right now — this is what the storefront and checkout use.</p>
+                  </div>
+
+                  {/* The one thing this whole form exists to set — the actual price customers pay. */}
+                  <div className="rounded-xl border-2 border-[#D32F2F]/25 bg-[#D32F2F]/5 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-full bg-[#D32F2F] flex items-center justify-center flex-shrink-0">
+                        <Pencil className="w-3 h-3 text-white" />
+                      </div>
+                      <h4 className="text-sm font-bold text-[#3E2723]">Store Price</h4>
+                      <span className="ml-auto text-[10px] font-semibold text-[#D32F2F] bg-white px-2 py-0.5 rounded-full border border-[#D32F2F]/20">EDITABLE</span>
                     </div>
-                    {recommendedPricePreview !== null && (
-                      <button type="button" onClick={() => setForm(f => ({ ...f, price: recommendedPricePreview!.toFixed(2) }))} className="mb-0.5 px-3 py-2 text-xs font-medium text-[#D32F2F] border border-[#D32F2F]/30 rounded-lg hover:bg-white whitespace-nowrap">
-                        Use recommended
-                      </button>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Selling Price ($)</label>
+                        <input
+                          type="number" step="0.01" min="0" value={form.price}
+                          onChange={e => { setForm({ ...form, price: e.target.value }); setPriceOverridden(true); }}
+                          className={`w-full px-3 py-2 text-lg font-bold text-[#3E2723] bg-white border rounded-lg focus:outline-none focus:ring-2 ${
+                            priceIsMissing || priceBelowCost ? 'border-red-400 focus:ring-red-300' : 'focus:ring-[#F9A825]'
+                          }`}
+                          required
+                        />
+                      </div>
+                      {recommendedPricePreview !== null && (
+                        <button type="button" onClick={() => setForm(f => ({ ...f, price: recommendedPricePreview!.toFixed(2) }))} className="mb-0.5 px-3 py-2 text-xs font-medium text-[#D32F2F] border border-[#D32F2F]/30 rounded-lg hover:bg-white whitespace-nowrap">
+                          Use recommended
+                        </button>
+                      )}
+                    </div>
+                    {priceBelowCost && (
+                      <p className="mt-2 text-xs font-medium text-red-600 flex items-start gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                        {priceIsBreakeven
+                          ? `This price ($${currentPrice.toFixed(2)}) is break-even after GST — no profit, but no loss either.`
+                          : `This price ($${currentPrice.toFixed(2)}) loses $${Math.abs(priceBreakdown!.profitAmount).toFixed(2)} per sale after GST (cost $${effectiveCostPrice.toFixed(2)}).`}
+                      </p>
+                    )}
+                    {!priceBelowCost && priceBreakdown && (
+                      <p className="mt-2 text-xs text-gray-500">
+                        Actual profit ${priceBreakdown.profitAmount.toFixed(2)}, GST ${priceBreakdown.gstAmount.toFixed(2)} (15%) at this price
+                      </p>
                     )}
                   </div>
-                  {priceBelowCost && (
-                    <p className="mt-2 text-xs font-medium text-red-600 flex items-start gap-1">
-                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                      {priceIsBreakeven
-                        ? `This price ($${currentPrice.toFixed(2)}) is break-even after GST — no profit, but no loss either.`
-                        : `This price ($${currentPrice.toFixed(2)}) loses $${Math.abs(priceBreakdown!.profitAmount).toFixed(2)} per sale after GST (cost $${effectiveCostPrice.toFixed(2)}).`}
-                    </p>
-                  )}
-                  {!priceBelowCost && priceBreakdown && (
-                    <p className="mt-2 text-xs text-gray-500">
-                      Actual profit ${priceBreakdown.profitAmount.toFixed(2)}, GST ${priceBreakdown.gstAmount.toFixed(2)} (15%) at this price
-                    </p>
-                  )}
                 </div>
+                )}
 
                 <label className="flex items-center justify-between p-3.5 rounded-xl border cursor-pointer hover:bg-gray-50 transition-colors">
                   <div>
@@ -710,19 +871,23 @@ export function AdminProductsPage() {
                   </h4>
                   <p className="text-xs text-gray-400 mb-3">
                     Store Price doesn't match Recommended Retail. Not always a problem — only flagged red when it's actually below cost after GST.
+                    {ignoredMismatchList.length > 0 && ` Ignored items still show below — the (${priceMismatches.length}) count and the Store Review badge just skip them.`}
                   </p>
-                  {priceMismatches.length === 0 ? (
+                  {allMismatches.length === 0 ? (
                     <p className="text-sm text-gray-400 italic">All store prices match their recommended retail.</p>
                   ) : (
                     <div className="space-y-2">
-                      {priceMismatches.map(({ product, isLoss, isBreakeven }) => {
+                      {allMismatches.map(({ product, isLoss, isBreakeven }) => {
                         const isInline = inlineEdit?.id === product.id && inlineEdit.field === 'price';
+                        const ignored = isCurrentlyIgnored(product);
                         return (
-                          <div key={product.id} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${isLoss ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+                          <div key={product.id} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${ignored ? 'border-gray-100 bg-gray-50/50 opacity-60' : isLoss ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium text-[#3E2723] truncate">{product.name}</p>
                               <p className="text-xs mt-0.5">
-                                {isLoss ? (
+                                {ignored ? (
+                                  <span className="text-gray-400">Ignored — not counted in the badge</span>
+                                ) : isLoss ? (
                                   <span className="text-red-600 font-medium">Below cost after GST — losing money</span>
                                 ) : isBreakeven ? (
                                   <span className="text-amber-600">Break-even after GST — no profit</span>
@@ -760,12 +925,36 @@ export function AdminProductsPage() {
                               )}
                             </div>
                             <button
+                              onClick={() => applyRecommendedPrice(product)}
+                              className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-green-600 hover:bg-green-700 shadow-sm"
+                              title="Set Store Price to match Recommended Retail"
+                            >
+                              Use recommended
+                            </button>
+                            <button
                               onClick={() => { setShowReview(false); openEdit(product); }}
                               className="flex-shrink-0 text-xs font-medium text-[#D32F2F] hover:underline"
                               title="Open full edit form"
                             >
                               Edit
                             </button>
+                            {ignored ? (
+                              <button
+                                onClick={() => unignoreMismatch(product.id)}
+                                className="flex-shrink-0 text-xs font-medium text-[#D32F2F] hover:underline"
+                                title="Start flagging this again"
+                              >
+                                Un-ignore
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => ignoreMismatch(product)}
+                                className="flex-shrink-0 text-xs font-medium text-gray-400 hover:text-gray-600 hover:underline"
+                                title="Stop counting this in the badge — until the price or recommended retail changes again"
+                              >
+                                Ignore
+                              </button>
+                            )}
                           </div>
                         );
                       })}

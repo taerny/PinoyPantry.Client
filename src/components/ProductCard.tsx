@@ -36,13 +36,13 @@ export function ProductCard({ id, name, price, originalPrice, image, badge, rati
   };
 
   return (
-    <div className="bg-white rounded-md shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group border border-gray-100">
+    <div className="bg-white rounded-md shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden group border border-gray-100">
       {/* Image Container - Square */}
       <div className="relative aspect-square overflow-hidden bg-gray-50">
         <ImageWithFallback
           src={image}
           alt={name}
-          className={`w-full h-full object-contain group-hover:scale-110 transition-transform duration-300 ${isSoldOut ? 'grayscale opacity-60' : ''}`}
+          className={`w-full h-full object-contain group-hover:scale-105 transition-transform duration-200 ${isSoldOut ? 'grayscale opacity-60' : ''}`}
         />
         {badge && (
           <span className="absolute top-2 left-2 bg-[#D32F2F] text-white px-2 py-0.5 rounded-full text-xs">
