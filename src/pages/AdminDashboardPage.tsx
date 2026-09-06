@@ -10,7 +10,8 @@ interface DashboardStats {
   totalUsers: number;
   productsWithImages: number;
   totalCategories: number;
-  totalInventoryValue: number;
+  totalCostValue: number;
+  totalProfitValue: number;
   categoryStats: { category: string; count: number }[];
   recentProducts: { id: number; name: string; category: string; price: number; hasImage: boolean }[];
 }
@@ -51,7 +52,7 @@ export function AdminDashboardPage() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <h2 className="text-xl font-bold text-[#3E2723] mb-6">Dashboard Overview</h2>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-xl shadow-sm border p-5">
             <div className="flex items-center justify-between mb-3">
               <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -84,13 +85,23 @@ export function AdminDashboardPage() {
           </div>
           <div className="bg-white rounded-xl shadow-sm border p-5">
             <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-red-600" />
+              </div>
+              <TrendingUp className="w-4 h-4 text-green-400" />
+            </div>
+            <p className="text-2xl font-bold text-[#3E2723]">${(stats.totalCostValue ?? 0).toFixed(2)}</p>
+            <p className="text-xs text-gray-500 mt-1">Total Cost (in stock)</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border p-5">
+            <div className="flex items-center justify-between mb-3">
               <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
                 <DollarSign className="w-5 h-5 text-amber-600" />
               </div>
               <TrendingUp className="w-4 h-4 text-green-400" />
             </div>
-            <p className="text-2xl font-bold text-[#3E2723]">${stats.totalInventoryValue.toFixed(2)}</p>
-            <p className="text-xs text-gray-500 mt-1">Inventory Value</p>
+            <p className="text-2xl font-bold text-[#3E2723]">${(stats.totalProfitValue ?? 0).toFixed(2)}</p>
+            <p className="text-xs text-gray-500 mt-1">Potential Profit (if all sold)</p>
           </div>
         </div>
 

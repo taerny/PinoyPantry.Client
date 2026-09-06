@@ -441,6 +441,7 @@ export function CategoryPage() {
                 image={product.image}
                 badge={product.badge}
                 rating={product.rating}
+                inventory={product.inventory}
               />
             ))}
           </div>

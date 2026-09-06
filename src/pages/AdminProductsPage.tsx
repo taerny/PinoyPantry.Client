@@ -412,7 +412,14 @@ export function AdminProductsPage() {
                     <div className="grid grid-cols-2 gap-y-3 gap-x-4">
                       <div>
                         <p className="text-[10px] font-semibold text-gray-400 uppercase flex items-center gap-1"><Tag className="w-2.5 h-2.5" /> Category</p>
-                        <p className="text-sm font-medium text-gray-600 mt-0.5">{form.category || '—'}</p>
+                        {form.category ? (
+                          <p className="text-sm font-medium text-gray-600 mt-0.5">{form.category}</p>
+                        ) : (
+                          <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full mt-0.5 px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required>
+                            <option value="">Select category</option>
+                            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        )}
                       </div>
                       <div>
                         <p className="text-[10px] font-semibold text-gray-400 uppercase">Cost Price</p>

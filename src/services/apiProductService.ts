@@ -12,6 +12,7 @@ interface ApiProduct {
   price: number;
   imageUrl: string;
   category: string;
+  stockQuantity: number;
 }
 
 /**
@@ -39,7 +40,8 @@ function mapApiProduct(p: ApiProduct): Product {
     price: p.price,
     image: p.imageUrl || '',
     category: p.category,
-    inStock: true,
+    inStock: p.stockQuantity > 0,
+    inventory: p.stockQuantity,
   };
 }
 
