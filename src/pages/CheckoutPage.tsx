@@ -116,7 +116,8 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
           <h1 className="text-xl font-bold text-[#3E2723] mb-2">Order Placed!</h1>
           <p className="text-sm text-gray-500 mb-1">Invoice <span className="font-semibold text-[#3E2723]">{confirmedInvoice}</span></p>
           <p className="text-sm text-gray-500 mb-6">
-            We've sent a confirmation to your email. We'll be in touch shortly to confirm payment{feePending ? ' and delivery' : ''}.
+            {form.email ? "We've sent a confirmation to your email. " : ''}
+            We'll be in touch by phone shortly to confirm payment{feePending ? ' and delivery' : ''}.
           </p>
           <button
             onClick={onComplete}
@@ -195,7 +196,7 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
                 </div>
                 <div>
                   <label className="block mb-2">
-                    Email <span className="text-[#D32F2F]">*</span>
+                    Email <span className="text-muted-foreground text-xs">(optional)</span>
                   </label>
                   <input
                     type="email"
@@ -203,7 +204,6 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
                     value={form.email}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
-                    required
                   />
                 </div>
                 <div className="md:col-span-2">
