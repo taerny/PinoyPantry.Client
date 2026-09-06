@@ -20,6 +20,7 @@ import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { AdminHeroPage } from './pages/AdminHeroPage';
 import { AdminOrdersPage } from './pages/AdminOrdersPage';
 import { AdminNewsletterPage } from './pages/AdminNewsletterPage';
+import { AdminPasabuyPage } from './pages/AdminPasabuyPage';
 import { InvoicePage } from './pages/InvoicePage';
 import { ContactPage } from './pages/ContactPage';
 import { PlayerStatsPage } from './pages/PlayerStatsPage';
@@ -37,10 +38,13 @@ function AppContent() {
   const { isAdmin, loading: authLoading } = useAuth();
   const { content: heroContent, loading: heroLoading } = useHeroContent();
 
-  // Scroll to top on route change
+  // Scroll to top on route change — skipped when the URL carries a hash (e.g. the
+  // Pasabuy nav link's "/#pasabuy"), so it doesn't fight that anchor's own scroll.
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [location.pathname]);
+    if (!location.hash) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [location.pathname, location.hash]);
 
   // Don't render the real site (even for a flash) until we know both who's asking
   // (admin or not) and whether maintenance mode is on — avoids a content flicker.
@@ -135,6 +139,7 @@ function AppContent() {
           <Route path="/admin/hero" element={<AdminHeroPage />} />
           <Route path="/admin/orders" element={<AdminOrdersPage />} />
           <Route path="/admin/newsletter" element={<AdminNewsletterPage />} />
+          <Route path="/admin/pasabuy" element={<AdminPasabuyPage />} />
           <Route path="/admin/orders/:id/invoice" element={<InvoicePage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/player-stats" element={<PlayerStatsPage />} />

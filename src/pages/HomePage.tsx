@@ -1,15 +1,29 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Hero } from '../components/Hero';
 import { ProductCard } from '../components/ProductCard';
 import { ProductsGridSkeleton } from '../components/Skeleton';
+import { PasabuySection } from '../components/PasabuySection';
+import { PromoCards } from '../components/PromoCards';
 import { useFeaturedProducts } from '../hooks/useProducts';
+import { scrollToSection } from '../utils/scrollToSection';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
 export function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { products: featuredProducts, loading: productsLoading } = useFeaturedProducts();
+
+  // Arriving here via the "Pasabuy" nav link from another page — smooth-scroll to
+  // the section once it's rendered (App.tsx's route-change scroll-to-top is skipped
+  // for this case so it doesn't fight with this scroll).
+  useEffect(() => {
+    if (location.hash === '#pasabuy') {
+      const timer = setTimeout(() => scrollToSection('pasabuy'), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [location.hash]);
 
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [subscribing, setSubscribing] = useState(false);
@@ -84,6 +98,8 @@ export function HomePage() {
         </div>
       </section>
 
+      <PasabuySection />
+
       {/* Newsletter - Enhanced */}
       <section className="py-20 relative overflow-hidden bg-gradient-to-br from-[#D32F2F] via-[#B71C1C] to-[#D32F2F]">
         {/* Background pattern */}
@@ -127,6 +143,8 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      <PromoCards />
     </>
   );
 }

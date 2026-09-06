@@ -1,18 +1,20 @@
-import { Shield, Home, LogOut, LayoutDashboard, Package, Settings, Upload, Image, ClipboardList, Mail } from 'lucide-react';
+import { Shield, Home, LogOut, LayoutDashboard, Package, Settings, Upload, Image, ClipboardList, Mail, ShoppingBag } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, type ReactNode } from 'react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 export const NEWSLETTER_LAST_SEEN_KEY = 'pp_admin_newsletter_last_seen';
+export const PASABUY_LAST_SEEN_KEY = 'pp_admin_pasabuy_last_seen';
 
 interface AdminLayoutProps {
   children: ReactNode;
-  activePage: 'dashboard' | 'products' | 'import' | 'settings' | 'hero' | 'orders' | 'newsletter';
+  activePage: 'dashboard' | 'products' | 'import' | 'settings' | 'hero' | 'orders' | 'newsletter' | 'pasabuy';
 }
 
 export function AdminLayout({ children, activePage }: AdminLayoutProps) {
   const { user, logout } = useAuth();
   const [newSubscriberCount, setNewSubscriberCount] = useState(0);
+  const [newPasabuyCount, setNewPasabuyCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -26,6 +28,17 @@ export function AdminLayout({ children, activePage }: AdminLayoutProps) {
         setNewSubscriberCount(subs.filter(s => new Date(s.subscribedAt).getTime() > lastSeenTime).length);
       })
       .catch(() => {});
+
+    fetch(`${API_URL}/api/pasabuy`, {
+      headers: { 'Authorization': `Bearer ${user.token}` },
+    })
+      .then(res => res.ok ? res.json() : [])
+      .then((orders: { createdAt: string }[]) => {
+        const lastSeen = localStorage.getItem(PASABUY_LAST_SEEN_KEY);
+        const lastSeenTime = lastSeen ? new Date(lastSeen).getTime() : 0;
+        setNewPasabuyCount(orders.filter(o => new Date(o.createdAt).getTime() > lastSeenTime).length);
+      })
+      .catch(() => {});
   }, [user]);
 
   if (!user) return null;
@@ -33,6 +46,7 @@ export function AdminLayout({ children, activePage }: AdminLayoutProps) {
   const navItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard', badge: 0 },
     { id: 'orders' as const, label: 'Orders', icon: ClipboardList, href: '/admin/orders', badge: 0 },
+    { id: 'pasabuy' as const, label: 'Pasabuy', icon: ShoppingBag, href: '/admin/pasabuy', badge: newPasabuyCount },
     { id: 'products' as const, label: 'Products', icon: Package, href: '/admin/products', badge: 0 },
     { id: 'import' as const, label: 'Import', icon: Upload, href: '/admin/import', badge: 0 },
     { id: 'hero' as const, label: 'Hero Section', icon: Image, href: '/admin/hero', badge: 0 },

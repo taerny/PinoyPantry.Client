@@ -1,6 +1,8 @@
 import { ShoppingCart, Search, Menu, User, X, Shield, LogOut, Settings, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../contexts/CartContext";
+import { scrollToSection } from "../utils/scrollToSection";
 import { useAuth } from "../contexts/AuthContext";
 import { Category, Product } from "../types";
 import ProductService from "../services/productService";
@@ -28,6 +30,16 @@ export function Header({
   const { getCartCount } = useCart();
   const { user, isAdmin, logout } = useAuth();
   const { content: heroContent } = useHeroContent();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  function handlePasabuyClick() {
+    if (location.pathname === '/') {
+      scrollToSection('pasabuy');
+    } else {
+      navigate('/#pasabuy');
+    }
+  }
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -518,19 +530,41 @@ export function Header({
               </button>
             </li>
             {categories.filter(c => c.slug !== 'all-products').map((category) => (
-              <li key={category.slug}>
-                <button
-                  onClick={() => onCategoryClick?.(category.slug)}
-                  className={`text-white hover:text-[#F9A825] hover:bg-[#F9A825]/10 transition-all whitespace-nowrap pb-1 px-3 py-1 rounded-t-lg ${
-                    selectedCategory === category.slug
-                      ? "text-[#F9A825] bg-[#F9A825]/10 border-b-2 border-[#F9A825]"
-                      : ""
-                  }`}
-                >
-                  {category.title}
-                </button>
+              <li key={category.slug} className="contents">
+                <li>
+                  <button
+                    onClick={() => onCategoryClick?.(category.slug)}
+                    className={`text-white hover:text-[#F9A825] hover:bg-[#F9A825]/10 transition-all whitespace-nowrap pb-1 px-3 py-1 rounded-t-lg ${
+                      selectedCategory === category.slug
+                        ? "text-[#F9A825] bg-[#F9A825]/10 border-b-2 border-[#F9A825]"
+                        : ""
+                    }`}
+                  >
+                    {category.title}
+                  </button>
+                </li>
+                {category.slug === 'dried-fish' && (
+                  <li>
+                    <button
+                      onClick={handlePasabuyClick}
+                      className="bg-[#D32F2F] text-white font-semibold hover:bg-[#B71C1C] transition-all whitespace-nowrap pb-1 px-3 py-1 rounded-lg"
+                    >
+                      🇵🇭 Pasabuy
+                    </button>
+                  </li>
+                )}
               </li>
             ))}
+            {!categories.some(c => c.slug === 'dried-fish') && (
+              <li>
+                <button
+                  onClick={handlePasabuyClick}
+                  className="bg-[#D32F2F] text-white font-semibold hover:bg-[#B71C1C] transition-all whitespace-nowrap pb-1 px-3 py-1 rounded-lg"
+                >
+                  🇵🇭 Pasabuy
+                </button>
+              </li>
+            )}
           </ul>
         </div>
       </nav>
@@ -556,7 +590,8 @@ export function Header({
                 </button>
               </li>
               {categories.filter(c => c.slug !== 'all-products').map((category) => (
-                <li key={category.slug}>
+                <li key={category.slug} className="contents">
+                <li>
                   <button
                     onClick={() => {
                       onCategoryClick?.(category.slug);
@@ -571,7 +606,34 @@ export function Header({
                     {category.title}
                   </button>
                 </li>
+                {category.slug === 'dried-fish' && (
+                  <li>
+                    <button
+                      onClick={() => {
+                        handlePasabuyClick();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="bg-[#D32F2F] text-white font-semibold block py-2 px-3 hover:bg-[#B71C1C] transition-all w-full text-left rounded-lg"
+                    >
+                      🇵🇭 Pasabuy
+                    </button>
+                  </li>
+                )}
+                </li>
               ))}
+              {!categories.some(c => c.slug === 'dried-fish') && (
+                <li>
+                  <button
+                    onClick={() => {
+                      handlePasabuyClick();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="bg-[#D32F2F] text-white font-semibold block py-2 px-3 hover:bg-[#B71C1C] transition-all w-full text-left rounded-lg"
+                  >
+                    🇵🇭 Pasabuy
+                  </button>
+                </li>
+              )}
               <li className="pt-4 border-t border-[#6D4C41]">
                 {user ? (
                   <>
