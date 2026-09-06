@@ -21,6 +21,7 @@ interface Order {
   notes: string | null;
   deliveryMethod: string | null;
   deliveryFee: number | null;
+  channel: 'Online' | 'Walk-in';
   status: 'Pending' | 'Paid' | 'Cancelled' | 'Completed';
   total: number;
   createdAt: string;
@@ -155,7 +156,7 @@ export function InvoicePage() {
             <div>
               <p className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Bill To</p>
               <p className="mt-1 font-medium text-[#3E2723]">{order.customerName}</p>
-              <p className="text-sm text-gray-500">{order.customerEmail}</p>
+              {order.customerEmail && <p className="text-sm text-gray-500">{order.customerEmail}</p>}
               {order.customerPhone && <p className="text-sm text-gray-500">{order.customerPhone}</p>}
               {order.customerAddress && <p className="text-sm whitespace-pre-line text-gray-500">{order.customerAddress}</p>}
             </div>
@@ -241,22 +242,38 @@ export function InvoicePage() {
             </div>
           )}
 
-          <div className="mt-8 rounded-lg border-2 border-dashed border-[#F9A825]/50 bg-yellow-50 p-5">
-            <p className="text-sm font-semibold text-[#3E2723]">Payment Instructions</p>
-            <p className="mt-1 text-sm text-gray-600">
-              Please pay by bank transfer using the details below. Use <strong className="text-[#3E2723]">{order.invoiceNumber}</strong> as the payment reference.
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:w-2/3">
-              <span className="text-gray-500">Account Name</span>
-              <span className="font-medium text-[#3E2723]">{bank?.accountName ?? 'Loading...'}</span>
-              <span className="text-gray-500">Bank</span>
-              <span className="font-medium text-[#3E2723]">{bank?.bankName ?? 'Loading...'}</span>
-              <span className="text-gray-500">Account Number</span>
-              <span className="font-medium text-[#3E2723]">{bank?.accountNumber ?? 'Loading...'}</span>
-              <span className="text-gray-500">Reference</span>
-              <span className="font-medium text-[#3E2723]">{order.invoiceNumber}</span>
+          {order.status === 'Paid' || order.status === 'Completed' ? (
+            <div className="mt-8 rounded-lg border-2 border-dashed border-green-400 bg-green-50 p-5">
+              <p className="text-sm font-semibold text-green-800">✅ Payment Received</p>
+              <p className="mt-1 text-sm text-green-700">
+                {order.channel === 'Walk-in' ? 'Paid in-store.' : 'Payment has been received.'} No further action needed.
+              </p>
             </div>
-          </div>
+          ) : order.status === 'Pending' && order.channel === 'Walk-in' ? (
+            <div className="mt-8 rounded-lg border-2 border-dashed border-[#F9A825]/50 bg-yellow-50 p-5">
+              <p className="text-sm font-semibold text-[#3E2723]">Payment Pending — Pay Later In-Store</p>
+              <p className="mt-1 text-sm text-gray-600">
+                Please settle <strong className="text-[#3E2723]">${order.total.toFixed(2)}</strong> at the store on your next visit. Use <strong className="text-[#3E2723]">{order.invoiceNumber}</strong> as your reference.
+              </p>
+            </div>
+          ) : order.status === 'Pending' ? (
+            <div className="mt-8 rounded-lg border-2 border-dashed border-[#F9A825]/50 bg-yellow-50 p-5">
+              <p className="text-sm font-semibold text-[#3E2723]">Payment Instructions</p>
+              <p className="mt-1 text-sm text-gray-600">
+                Please pay by bank transfer using the details below. Use <strong className="text-[#3E2723]">{order.invoiceNumber}</strong> as the payment reference.
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:w-2/3">
+                <span className="text-gray-500">Account Name</span>
+                <span className="font-medium text-[#3E2723]">{bank?.accountName ?? 'Loading...'}</span>
+                <span className="text-gray-500">Bank</span>
+                <span className="font-medium text-[#3E2723]">{bank?.bankName ?? 'Loading...'}</span>
+                <span className="text-gray-500">Account Number</span>
+                <span className="font-medium text-[#3E2723]">{bank?.accountNumber ?? 'Loading...'}</span>
+                <span className="text-gray-500">Reference</span>
+                <span className="font-medium text-[#3E2723]">{order.invoiceNumber}</span>
+              </div>
+            </div>
+          ) : null}
 
           <p className="mt-8 text-center text-xs text-gray-400">Salamat po for shopping with PinoyPantry!</p>
         </div>
