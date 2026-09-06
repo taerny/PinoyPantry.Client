@@ -401,7 +401,21 @@ export function AdminProductsPage() {
                   </div>
                 </div>
 
-                {/* Supplier-sourced facts — locked once the product exists, editable only at creation */}
+                {editingId && (
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Tag className="w-3.5 h-3.5 text-gray-400" />
+                      <h4 className="text-sm font-bold text-gray-600">Category</h4>
+                      <span className="ml-auto text-[10px] font-semibold text-[#D32F2F] bg-white px-2 py-0.5 rounded-full border border-[#D32F2F]/20">EDITABLE</span>
+                    </div>
+                    <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required>
+                      <option value="">Select category</option>
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {/* Cost/retail/margin are supplier-sourced facts — locked once the product exists, editable only at creation */}
                 {editingId ? (
                   <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                     <div className="flex items-center gap-2 mb-3">
@@ -410,17 +424,6 @@ export function AdminProductsPage() {
                       <span className="ml-auto text-[10px] font-semibold text-gray-400 bg-white px-2 py-0.5 rounded-full border border-gray-200">LOCKED</span>
                     </div>
                     <div className="grid grid-cols-2 gap-y-3 gap-x-4">
-                      <div>
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase flex items-center gap-1"><Tag className="w-2.5 h-2.5" /> Category</p>
-                        {form.category ? (
-                          <p className="text-sm font-medium text-gray-600 mt-0.5">{form.category}</p>
-                        ) : (
-                          <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full mt-0.5 px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required>
-                            <option value="">Select category</option>
-                            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                        )}
-                      </div>
                       <div>
                         <p className="text-[10px] font-semibold text-gray-400 uppercase">Cost Price</p>
                         <p className="text-sm font-medium text-gray-600 mt-0.5">${(parseFloat(form.costPrice) || 0).toFixed(2)}</p>
