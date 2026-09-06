@@ -58,7 +58,6 @@ const SLUG_TO_CATEGORY: Record<string, string> = {
   'instant-noodles': 'Noodles',
   'condiments':      'Condiments',
   'beverages':       'Beverages',
-  'sweets':          'Sweets',
   'soups-mixes':     'Soups & Mixes',
   'dairy':           'Dairy',
   'dried-fish':      'Dried Fish',

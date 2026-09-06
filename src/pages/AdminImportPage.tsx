@@ -6,7 +6,7 @@ import { AdminLayout } from '../components/AdminLayout';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
-const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Sweets', 'Dried Fish'];
+const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Dried Fish'];
 
 // "reference" columns (GST, Total Revenue, etc.) are shown read-only for context; the rest are
 // editable and feed straight into the import payload from wherever they sit in the row.

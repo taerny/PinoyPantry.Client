@@ -5,7 +5,7 @@ import { AdminLayout } from '../components/AdminLayout';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
-const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Sweets', 'Dried Fish'];
+const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Dried Fish'];
 
 interface Product {
   id: number;

@@ -54,14 +54,6 @@ export const mockCategories: Category[] = [
     itemCount: 55,
     description: 'Essential Filipino condiments and sauces'
   },
-  { 
-    id: 'sweets',
-    title: 'Sweets', 
-    slug: 'sweets',
-    icon: '🍬', 
-    itemCount: 40,
-    description: 'Delicious Filipino candies and sweet treats'
-  },
   {
     id: 'soups-mixes',
     title: 'Soups & Mixes',
@@ -390,66 +382,6 @@ export const mockProducts: Product[] = [
     category: 'condiments',
     inStock: true,
   },
-  
-  // Sweets
-  {
-    id: 'assorted-filipino-sweets',
-    name: 'Assorted Filipino Sweets Mix',
-    price: 120.00,
-    image: 'https://images.unsplash.com/photo-1763697039063-f68a90a95909?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhc2lhbiUyMGNhbmR5JTIwc3dlZXRzfGVufDF8fHx8MTc2NDI0MTM4MHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    badge: 'BESTSELLER',
-    rating: 4.4,
-    category: 'sweets',
-    inStock: true,
-  },
-  {
-    id: 'white-rabbit-candy',
-    name: 'White Rabbit Candy 180g',
-    price: 95.00,
-    originalPrice: 110.00,
-    image: 'https://images.unsplash.com/photo-1763697039063-f68a90a95909?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhc2lhbiUyMGNhbmR5JTIwc3dlZXRzfGVufDF8fHx8MTc2NDI0MTM4MHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    rating: 4.6,
-    category: 'sweets',
-    inStock: true,
-  },
-  {
-    id: 'polvoron-assorted',
-    name: 'Polvoron Assorted Pack 250g',
-    price: 85.00,
-    image: 'https://images.unsplash.com/photo-1763697039063-f68a90a95909?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhc2lhbiUyMGNhbmR5JTIwc3dlZXRzfGVufDF8fHx8MTc2NDI0MTM4MHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    rating: 4.7,
-    category: 'sweets',
-    inStock: true,
-  },
-  {
-    id: 'yema-candy',
-    name: 'Yema Candy Box 200g',
-    price: 75.00,
-    image: 'https://images.unsplash.com/photo-1763697039063-f68a90a95909?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhc2lhbiUyMGNhbmR5JTIwc3dlZXRzfGVufDF8fHx8MTc2NDI0MTM4MHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    badge: 'NEW',
-    rating: 4.5,
-    category: 'sweets',
-    inStock: true,
-  },
-  {
-    id: 'pastillas-de-leche',
-    name: 'Pastillas de Leche 150g',
-    price: 65.00,
-    originalPrice: 75.00,
-    image: 'https://images.unsplash.com/photo-1763697039063-f68a90a95909?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhc2lhbiUyMGNhbmR5JTIwc3dlZXRzfGVufDF8fHx8MTc2NDI0MTM4MHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    rating: 4.8,
-    category: 'sweets',
-    inStock: true,
-  },
-  {
-    id: 'barquillos-wafer-rolls',
-    name: 'Barquillos (Wafer Rolls) 200g',
-    price: 70.00,
-    image: 'https://images.unsplash.com/photo-1763697039063-f68a90a95909?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhc2lhbiUyMGNhbmR5JTIwc3dlZXRzfGVufDF8fHx8MTc2NDI0MTM4MHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    rating: 4.6,
-    category: 'sweets',
-    inStock: true,
-  },
 ];
 
 // Helper function to get featured products (first 6 products)
@@ -460,7 +392,6 @@ export const getFeaturedProducts = (): Product[] => {
     mockProducts[2],  // Sardines in Tomato
     mockProducts[12], // Pancit Canton 10 pack
     mockProducts[4],  // Coconut Milk
-    mockProducts[24], // Assorted Sweets
   ];
 };
 
