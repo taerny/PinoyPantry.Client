@@ -1,12 +1,43 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Hero } from '../components/Hero';
 import { ProductCard } from '../components/ProductCard';
 import { ProductsGridSkeleton } from '../components/Skeleton';
 import { useFeaturedProducts } from '../hooks/useProducts';
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
+
 export function HomePage() {
   const navigate = useNavigate();
   const { products: featuredProducts, loading: productsLoading } = useFeaturedProducts();
+
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [subscribing, setSubscribing] = useState(false);
+  const [subscribeMessage, setSubscribeMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  async function handleSubscribe() {
+    if (!newsletterEmail.trim()) {
+      setSubscribeMessage({ type: 'error', text: 'Please enter your email address.' });
+      return;
+    }
+    setSubscribing(true);
+    setSubscribeMessage(null);
+    try {
+      const res = await fetch(`${API_URL}/api/newsletter/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newsletterEmail.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || 'Could not subscribe. Please try again.');
+      setSubscribeMessage({ type: 'success', text: data.message || 'Subscribed!' });
+      setNewsletterEmail('');
+    } catch (err: any) {
+      setSubscribeMessage({ type: 'error', text: err.message || 'Could not subscribe. Please try again.' });
+    } finally {
+      setSubscribing(false);
+    }
+  }
 
   return (
     <>
@@ -74,13 +105,25 @@ export function HomePage() {
             <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
               <input
                 type="email"
+                value={newsletterEmail}
+                onChange={e => setNewsletterEmail(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSubscribe(); }}
                 placeholder="Enter your email address"
                 className="flex-1 px-6 py-4 rounded-full border-2 border-white/20 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#F9A825] bg-white/10 backdrop-blur-sm"
               />
-              <button className="bg-[#F9A825] text-[#3E2723] px-8 py-4 rounded-full hover:bg-[#FFB300] transition-all whitespace-nowrap font-semibold shadow-xl hover:shadow-2xl hover:scale-105">
-                Subscribe Now
+              <button
+                onClick={handleSubscribe}
+                disabled={subscribing}
+                className="bg-[#F9A825] text-[#3E2723] px-8 py-4 rounded-full hover:bg-[#FFB300] transition-all whitespace-nowrap font-semibold shadow-xl hover:shadow-2xl hover:scale-105 disabled:opacity-60 disabled:hover:scale-100"
+              >
+                {subscribing ? 'Subscribing...' : 'Subscribe Now'}
               </button>
             </div>
+            {subscribeMessage && (
+              <p className={`mt-4 text-sm font-medium ${subscribeMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                {subscribeMessage.text}
+              </p>
+            )}
           </div>
         </div>
       </section>
