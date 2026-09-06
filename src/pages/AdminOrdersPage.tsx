@@ -161,6 +161,7 @@ export function AdminOrdersPage() {
             <p className="text-sm text-gray-500">No orders yet — they'll show up here once customers start checking out.</p>
           </div>
         ) : (
+          <>
           <div className="hidden sm:block bg-white rounded-xl shadow-sm border overflow-auto max-h-[75vh]">
             <table className="w-full">
               <thead className="bg-gray-50 border-b sticky top-0 z-10">
@@ -432,6 +433,7 @@ export function AdminOrdersPage() {
               );
             })}
           </div>
+          </>
         )}
       </div>
     </AdminLayout>
