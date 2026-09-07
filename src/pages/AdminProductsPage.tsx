@@ -52,7 +52,7 @@ interface Product {
 // Category, Margin and Qty are admin-editable any time; Code/Subtotal are locked reference
 // data from the supplier invoice; Cost Price is derived from Subtotal/Qty when both are set.
 // Only Price and Stock get quick inline edits from the table.
-type InlineField = 'price' | 'stockQuantity';
+type InlineField = 'price';
 
 interface InlineEdit {
   id: number;
@@ -60,7 +60,7 @@ interface InlineEdit {
   value: string;
 }
 
-const EMPTY_FORM = { name: '', description: '', price: '', costPrice: '', category: '', imageUrl: '', isPublished: false, margin: '', code: '', qty: '', subtotal: '', stockQuantity: '0' };
+const EMPTY_FORM = { name: '', description: '', price: '', costPrice: '', category: '', imageUrl: '', isPublished: false, margin: '', code: '', qty: '', subtotal: '' };
 
 // Reads a failed fetch Response and returns a human-readable message.
 // Handles both { message: "..." } and FluentValidation's
@@ -94,8 +94,6 @@ export function AdminProductsPage() {
   // already had a saved price. Typing directly into Store Price flips this off immediately,
   // making it independent for the rest of this session.
   const [priceOverridden, setPriceOverridden] = useState(false);
-  const [stockQtyOverridden, setStockQtyOverridden] = useState(false);
-  const [qtyEdited, setQtyEdited] = useState(false);
   const [pricingTab, setPricingTab] = useState<'supplier' | 'store'>('supplier');
   const [search, setSearch] = useState('');
   const [showReview, setShowReview] = useState(false);
@@ -164,7 +162,6 @@ export function AdminProductsPage() {
       price: parseFloat(form.price) || 0,
       costPrice: effectiveCostPrice,
       category: form.category,
-      stockQuantity: parseInt(form.stockQuantity, 10) || 0,
       imageUrl: form.imageUrl,
       isPublished: form.isPublished,
       margin: form.margin === '' ? null : (parseFloat(form.margin) || 0) / 100,
@@ -255,9 +252,8 @@ export function AdminProductsPage() {
       name: product.name ?? '',
       description: product.description ?? '',
       imageUrl: product.imageUrl ?? '',
-      price: inlineEdit.field === 'price' ? parseFloat(inlineEdit.value) || (product.price ?? 0) : (product.price ?? 0),
+      price: parseFloat(inlineEdit.value) || (product.price ?? 0),
       costPrice: product.costPrice ?? 0,
-      stockQuantity: inlineEdit.field === 'stockQuantity' ? parseInt(inlineEdit.value, 10) || (product.stockQuantity ?? 0) : (product.stockQuantity ?? 0),
       category: product.category ?? '',
       isPublished: product.isPublished ?? false,
       margin: product.margin,
@@ -278,7 +274,7 @@ export function AdminProductsPage() {
         body: JSON.stringify(updated),
       });
       if (!res.ok) throw new Error(await extractErrorMessage(res, 'Failed to save inline change.'));
-      setMessage({ type: 'success', text: `Updated ${inlineEdit.field === 'stockQuantity' ? 'stock' : inlineEdit.field}.` });
+      setMessage({ type: 'success', text: 'Updated price.' });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Failed to save inline change.' });
       fetchProducts(); // revert on failure
@@ -312,7 +308,6 @@ export function AdminProductsPage() {
       imageUrl: product.imageUrl ?? '',
       price: newPrice,
       costPrice: product.costPrice ?? 0,
-      stockQuantity: product.stockQuantity ?? 0,
       category: product.category ?? '',
       isPublished: product.isPublished ?? false,
       margin: product.margin,
@@ -354,7 +349,6 @@ export function AdminProductsPage() {
           imageUrl: product.imageUrl ?? '',
           price: product.price ?? 0,
           costPrice: product.costPrice ?? 0,
-          stockQuantity: product.stockQuantity ?? 0,
           category: product.category ?? '',
           isPublished: nextPublished,
           margin: product.margin,
@@ -384,13 +378,10 @@ export function AdminProductsPage() {
       code: product.code ?? '',
       qty: product.qty === null || product.qty === undefined ? '' : String(product.qty),
       subtotal: product.subtotal === null || product.subtotal === undefined ? '' : String(product.subtotal),
-      stockQuantity: String(product.stockQuantity ?? 0),
     });
     setEditingId(product.id);
     setShowForm(true);
     setPriceOverridden(false);
-    setStockQtyOverridden(false);
-    setQtyEdited(false);
     setPricingTab('supplier');
   }
 
@@ -402,8 +393,6 @@ export function AdminProductsPage() {
     setEditingId(null);
     setShowForm(true);
     setPriceOverridden(false);
-    setStockQtyOverridden(false);
-    setQtyEdited(false);
     setPricingTab('supplier');
   }
 
@@ -455,18 +444,6 @@ export function AdminProductsPage() {
       setForm(f => ({ ...f, price: recommendedPricePreview.toFixed(2) }));
     }
   }, [recommendedPricePreview, priceOverridden]);
-
-  // Keep Store Quantity in sync with Invoice Qty — but ONLY once the admin actively types a
-  // new Invoice Qty this session (qtyEdited), never just from opening the modal. Unlike Store
-  // Price/Recommended Retail, Invoice Qty is often already-loaded and unchanged for an existing
-  // product whose real stock has since diverged (sold down, restocked); syncing on open would
-  // silently overwrite accurate stock with the old invoice number. Once triggered, it still
-  // stops following as soon as the admin types directly into Store Quantity themselves.
-  useEffect(() => {
-    if (qtyEdited && !stockQtyOverridden && parsedQty !== null && parsedQty >= 0) {
-      setForm(f => ({ ...f, stockQuantity: String(parsedQty) }));
-    }
-  }, [parsedQty, qtyEdited, stockQtyOverridden]);
 
   if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>;
   if (!user || !isAdmin) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-center"><h2 className="text-xl font-bold text-[#3E2723] mb-2">Access Denied</h2><a href="/login" className="text-[#D32F2F] hover:underline">Go to Login</a></div></div>;
@@ -689,7 +666,7 @@ export function AdminProductsPage() {
                       <label className="block text-xs font-medium text-amber-700/80 mb-1">Invoice Qty</label>
                       <input
                         type="number" min="0" value={form.qty}
-                        onChange={e => { setForm({ ...form, qty: e.target.value }); setQtyEdited(true); }}
+                        onChange={e => setForm({ ...form, qty: e.target.value })}
                         placeholder="Pack size on the invoice"
                         className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
                       />
@@ -725,10 +702,8 @@ export function AdminProductsPage() {
                 </div>
                 )}
 
-                {/* Store-facing numbers — safe to edit freely, day to day. Store Quantity
-                    follows Invoice Qty above once the admin actively types a new one (matching
-                    a fresh restock invoice), but never overwrites already-accurate stock just
-                    from opening the modal. */}
+                {/* Store-facing numbers — safe to edit freely, day to day. Stock itself is
+                    read-only here; it's only ever changed via the Batches modal. */}
                 {pricingTab === 'store' && (
                 <div className="rounded-xl border-2 border-blue-300/60 bg-blue-50/40 p-4 space-y-4">
                   <div className="flex items-center gap-2">
@@ -737,14 +712,12 @@ export function AdminProductsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-blue-700/80 mb-1">Store Quantity</label>
-                    <input
-                      type="number" min="0" value={form.stockQuantity}
-                      onChange={e => { setForm({ ...form, stockQuantity: e.target.value }); setStockQtyOverridden(true); }}
-                      className="w-full px-3 py-2 border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      required
-                    />
-                    <p className="mt-1 text-[10px] text-blue-700/70">Actual quantity on hand right now — this is what the storefront and checkout use.</p>
+                    <label className="block text-xs font-medium text-blue-700/80 mb-1">Stock</label>
+                    <p className="text-sm text-blue-900/80 bg-white border border-blue-200 rounded-lg px-3 py-2">
+                      {editingId
+                        ? `${products.find(p => p.id === editingId)?.stockQuantity ?? 0} on hand — managed via batches, not edited here.`
+                        : 'Starts at 0 — add a batch after saving to bring in stock.'}
+                    </p>
                   </div>
 
                   {/* The one thing this whole form exists to set — the actual price customers pay. */}
@@ -1051,7 +1024,6 @@ export function AdminProductsPage() {
             <tbody className="divide-y">
               {filteredProducts.map(product => {
                 const isInlinePrice = inlineEdit?.id === product.id && inlineEdit.field === 'price';
-                const isInlineQty = inlineEdit?.id === product.id && inlineEdit.field === 'stockQuantity';
 
                 return (
                   <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
@@ -1120,33 +1092,20 @@ export function AdminProductsPage() {
                       {product.margin === null || product.margin === undefined ? '—' : `${(Number(product.margin) * 100).toFixed(1)}%`}
                     </td>
 
-                    {/* Stock Qty — inline edit */}
+                    {/* Stock — read only, managed via batches */}
                     <td className="px-4 py-3 text-right hidden sm:table-cell">
-                      {isInlineQty ? (
-                        <input
-                          ref={el => { inlineRef.current = el; }}
-                          type="number"
-                          min="0"
-                          value={inlineEdit.value}
-                          onChange={e => setInlineEdit({ ...inlineEdit, value: e.target.value })}
-                          onBlur={saveInline}
-                          onKeyDown={e => { if (e.key === 'Enter') saveInline(); if (e.key === 'Escape') cancelInline(); }}
-                          className="w-16 text-sm text-right border border-[#F9A825] rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
-                        />
-                      ) : (
-                        <button
-                          onClick={() => startInline(product.id, 'stockQuantity', String(product.stockQuantity ?? 0))}
-                          className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors group inline-flex items-center gap-1 hover:opacity-80 ${
-                            (product.stockQuantity ?? 0) > 50 ? 'bg-green-50 text-green-700' :
-                            (product.stockQuantity ?? 0) > 0  ? 'bg-amber-50 text-amber-700' :
-                                                                'bg-red-50 text-red-700'
-                          }`}
-                          title="Click to edit stock"
-                        >
-                          <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-60" />
-                          {product.stockQuantity ?? 0}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setManagingBatches(product)}
+                        className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors group inline-flex items-center gap-1 hover:opacity-80 ${
+                          (product.stockQuantity ?? 0) > 50 ? 'bg-green-50 text-green-700' :
+                          (product.stockQuantity ?? 0) > 0  ? 'bg-amber-50 text-amber-700' :
+                                                              'bg-red-50 text-red-700'
+                        }`}
+                        title="Manage batches"
+                      >
+                        <Boxes className="w-3 h-3 opacity-0 group-hover:opacity-60" />
+                        {product.stockQuantity ?? 0}
+                      </button>
                     </td>
 
                     {/* Published toggle */}
@@ -1189,7 +1148,6 @@ export function AdminProductsPage() {
         <div className="sm:hidden bg-white rounded-xl shadow-sm border divide-y max-h-[75vh] overflow-y-auto">
           {filteredProducts.map(product => {
             const isInlinePrice = inlineEdit?.id === product.id && inlineEdit.field === 'price';
-            const isInlineQty = inlineEdit?.id === product.id && inlineEdit.field === 'stockQuantity';
             const hasRefFigures = (product.recommendedRetail !== null && product.recommendedRetail !== undefined) || (product.margin !== null && product.margin !== undefined);
 
             return (
@@ -1223,32 +1181,19 @@ export function AdminProductsPage() {
                     <p className="text-sm text-gray-500 px-2 py-1.5 truncate" title="From supplier data — locked">{product.category}</p>
                   </div>
 
-                  {/* Stock — tap to edit */}
+                  {/* Stock — tap to manage batches */}
                   <div>
                     <p className="text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Stock</p>
-                    {isInlineQty ? (
-                      <input
-                        ref={el => { inlineRef.current = el; }}
-                        type="number"
-                        min="0"
-                        value={inlineEdit.value}
-                        onChange={e => setInlineEdit({ ...inlineEdit, value: e.target.value })}
-                        onBlur={saveInline}
-                        onKeyDown={e => { if (e.key === 'Enter') saveInline(); if (e.key === 'Escape') cancelInline(); }}
-                        className="w-full text-sm border border-[#F9A825] rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
-                      />
-                    ) : (
-                      <button
-                        onClick={() => startInline(product.id, 'stockQuantity', String(product.stockQuantity ?? 0))}
-                        className={`w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium transition-colors hover:opacity-80 ${
-                          (product.stockQuantity ?? 0) > 50 ? 'bg-green-50 text-green-700' :
-                          (product.stockQuantity ?? 0) > 0  ? 'bg-amber-50 text-amber-700' :
-                                                              'bg-red-50 text-red-700'
-                        }`}
-                      >
-                        {product.stockQuantity ?? 0}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setManagingBatches(product)}
+                      className={`w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium transition-colors hover:opacity-80 ${
+                        (product.stockQuantity ?? 0) > 50 ? 'bg-green-50 text-green-700' :
+                        (product.stockQuantity ?? 0) > 0  ? 'bg-amber-50 text-amber-700' :
+                                                            'bg-red-50 text-red-700'
+                      }`}
+                    >
+                      {product.stockQuantity ?? 0}
+                    </button>
                   </div>
 
                   {/* Cost — locked, from supplier data */}
