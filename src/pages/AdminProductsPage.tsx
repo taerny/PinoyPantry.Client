@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Pencil, Trash2, X, Check, AlertCircle, AlertTriangle, Package, Upload, Image as ImageIcon, Lock, Tag, Search, ClipboardList, Store } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, AlertCircle, AlertTriangle, Package, Upload, Image as ImageIcon, Lock, Tag, Search, ClipboardList, Store, Boxes } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AdminLayout } from '../components/AdminLayout';
+import { ProductBatchesModal } from '../components/ProductBatchesModal';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
@@ -86,6 +87,7 @@ export function AdminProductsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [managingBatches, setManagingBatches] = useState<Product | null>(null);
   const [lowPriceConfirm, setLowPriceConfirm] = useState(false);
   // Store Price defaults to (and keeps following) the live Recommended Retail every time the
   // modal opens, for any product — reset to false on every open, regardless of whether it
@@ -825,6 +827,19 @@ export function AdminProductsPage() {
           </div>
         )}
 
+        {/* ── Batches ──────────────────────────────────────────────────── */}
+        {managingBatches && (
+          <ProductBatchesModal
+            productId={managingBatches.id}
+            productName={managingBatches.name}
+            onClose={() => setManagingBatches(null)}
+            onBatchesChange={(stock) => {
+              setProducts(prev => prev.map(p => p.id === managingBatches.id ? { ...p, stockQuantity: stock } : p));
+              setManagingBatches(prev => (prev ? { ...prev, stockQuantity: stock } : prev));
+            }}
+          />
+        )}
+
         {/* ── Clear All Confirm ────────────────────────────────────────── */}
         {/* ── Low/No-Profit Price Confirm ─────────────────────────────── */}
         {lowPriceConfirm && (
@@ -1152,6 +1167,9 @@ export function AdminProductsPage() {
                     {/* Actions */}
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => setManagingBatches(product)} className="p-2 text-gray-400 hover:text-[#F9A825] hover:bg-yellow-50 rounded-lg transition-colors" title="Manage batches">
+                          <Boxes className="w-4 h-4" />
+                        </button>
                         <button onClick={() => openEdit(product)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit product details & image">
                           <Pencil className="w-4 h-4" />
                         </button>
@@ -1274,6 +1292,9 @@ export function AdminProductsPage() {
                 )}
 
                 <div className="flex gap-2">
+                  <button onClick={() => setManagingBatches(product)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <Boxes className="w-3.5 h-3.5" /> Batches
+                  </button>
                   <button onClick={() => openEdit(product)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50 transition-colors">
                     <Pencil className="w-3.5 h-3.5" /> Edit
                   </button>
