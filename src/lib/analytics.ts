@@ -5,15 +5,23 @@
 declare global {
   interface Window {
     dataLayer?: unknown[];
+    gtag?: (...args: unknown[]) => void;
   }
 }
 
 const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
 
+// Must be assigned to window.gtag, not just kept as a local helper — gtag.js's own internal
+// features (Enhanced Measurement's scroll/click/outbound-link tracking) call window.gtag(...)
+// directly to report what they observe. Without a real global gtag, the library still loads
+// and processes dataLayer internally (so it looks like it's "working"), but never actually
+// sends any measurement hit — confirmed by testing: no network request fires until this
+// exists as a callable global, even though the script and dataLayer show no errors otherwise.
 function gtag(...args: unknown[]) {
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push(args);
 }
+window.gtag = gtag;
 
 let initialized = false;
 
