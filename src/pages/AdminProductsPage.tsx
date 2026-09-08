@@ -6,7 +6,7 @@ import { ProductBatchesModal } from '../components/ProductBatchesModal';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
-const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Dried Fish'];
+const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Dried Fish', 'Other'];
 
 const GST_RATE = 0.15;
 
@@ -141,7 +141,11 @@ export function AdminProductsPage() {
     e.preventDefault();
     const priceValue = parseFloat(form.price) || 0;
 
-    if (priceValue <= 0) {
+    // Only enforced once the product actually has stock — before that (no batch added yet,
+    // including editing to set Margin ahead of the first batch), there's nothing to price
+    // against yet. Add a batch and it sets a real price automatically.
+    const editingStock = editingId ? (products.find(p => p.id === editingId)?.stockQuantity ?? 0) : 0;
+    if (editingId && editingStock > 0 && priceValue <= 0) {
       setMessage({ type: 'error', text: 'Selling Price is required and must be greater than $0 — this is the price customers actually pay on the website.' });
       return;
     }
@@ -157,16 +161,29 @@ export function AdminProductsPage() {
     setMessage(null);
     setLowPriceConfirm(false);
 
-    const body = {
-      name: form.name,
-      description: form.description,
-      price: parseFloat(form.price) || 0,
-      category: form.category,
-      imageUrl: form.imageUrl,
-      isPublished: form.isPublished,
-      margin: form.margin === '' ? null : (parseFloat(form.margin) || 0) / 100,
-      code: form.code || null,
-    };
+    // A brand-new product is just Name/Description/Category/Image — Price, Margin, Code and
+    // Publish all only make sense once a batch exists, so they're not even shown on Add
+    // (the backend forces IsPublished false and accepts Price 0 here regardless).
+    const body = editingId
+      ? {
+          name: form.name,
+          description: form.description,
+          price: parseFloat(form.price) || 0,
+          category: form.category,
+          imageUrl: form.imageUrl,
+          isPublished: form.isPublished,
+          margin: form.margin === '' ? null : (parseFloat(form.margin) || 0) / 100,
+        }
+      : {
+          name: form.name,
+          description: form.description,
+          price: 0,
+          category: form.category,
+          imageUrl: form.imageUrl,
+          isPublished: false,
+          margin: null,
+          code: null,
+        };
 
     try {
       const url = editingId ? `${API_URL}/api/products/${editingId}` : `${API_URL}/api/products`;
@@ -176,11 +193,21 @@ export function AdminProductsPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(await extractErrorMessage(res, 'Failed to save product.'));
-      setMessage({ type: 'success', text: editingId ? 'Product updated!' : 'Product created!' });
+      const saved = await res.json();
       setShowForm(false);
       setEditingId(null);
       setForm(EMPTY_FORM);
       fetchProducts();
+
+      if (editingId) {
+        setMessage({ type: 'success', text: 'Product updated!' });
+      } else {
+        // Straight into Batches — a new product has 0 stock/no price until its first batch
+        // exists, so this is the natural next step rather than leaving the admin to hunt
+        // for the Batches button themselves.
+        setMessage({ type: 'success', text: 'Product created! Add its first batch to set stock and price.' });
+        setManagingBatches(saved);
+      }
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Failed to save product.' });
     }
@@ -596,10 +623,21 @@ export function AdminProductsPage() {
                   </select>
                 </div>
 
+                {/* Supplier Code, Cost, Margin, Price and Publish only make sense once a batch
+                    exists — a brand-new product has no cost to base any of them on. Skip
+                    straight to Batches after Save instead of asking for throwaway numbers here. */}
+                {!editingId && (
+                  <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
+                    <p className="text-sm text-gray-500">Save first, then add its first batch (quantity + cost) — that's what sets stock and price.</p>
+                  </div>
+                )}
+
                 {/* Tabs instead of stacking both panels — the combined height made the Store
                     panel a long scroll away, especially annoying for a quick price/stock edit.
                     Segmented-control styling (light track + raised active pill) so the two
                     tabs are unmistakably there, not just a thin underline easy to miss. */}
+                {editingId && (
+                <>
                 <div className="flex gap-1 p-1 bg-gray-100 border border-gray-200 rounded-xl">
                   <button
                     type="button"
@@ -732,7 +770,10 @@ export function AdminProductsPage() {
                           className={`w-full px-3 py-2 text-lg font-bold text-[#3E2723] bg-white border rounded-lg focus:outline-none focus:ring-2 ${
                             priceIsMissing || priceBelowCost ? 'border-red-400 focus:ring-red-300' : 'focus:ring-[#F9A825]'
                           }`}
-                          required
+                          // Only required once the product actually has stock — before the
+                          // first batch, there's nothing to price against yet (e.g. setting
+                          // Margin ahead of time shouldn't be blocked by an empty Price).
+                          required={(products.find(p => p.id === editingId)?.stockQuantity ?? 0) > 0}
                         />
                       </div>
                       {recommendedPricePreview !== null && (
@@ -757,14 +798,28 @@ export function AdminProductsPage() {
                   </div>
                 </div>
                 )}
+                </>
+                )}
 
+                {editingId && (
                 <label className="flex items-center justify-between p-3.5 rounded-xl border cursor-pointer hover:bg-gray-50 transition-colors">
                   <div>
                     <p className="text-sm font-medium text-gray-700">Published</p>
-                    <p className="text-xs text-gray-400">Visible on the live storefront</p>
+                    <p className="text-xs text-gray-400">
+                      {(products.find(p => p.id === editingId)?.stockQuantity ?? 0) <= 0
+                        ? 'Needs stock (add a batch) before this can go live'
+                        : 'Visible on the live storefront'}
+                    </p>
                   </div>
-                  <input type="checkbox" checked={form.isPublished} onChange={e => setForm({ ...form, isPublished: e.target.checked })} className="w-5 h-5 rounded border-gray-300 text-[#D32F2F] focus:ring-[#F9A825]" />
+                  <input
+                    type="checkbox"
+                    checked={form.isPublished}
+                    disabled={(products.find(p => p.id === editingId)?.stockQuantity ?? 0) <= 0}
+                    onChange={e => setForm({ ...form, isPublished: e.target.checked })}
+                    className="w-5 h-5 rounded border-gray-300 text-[#D32F2F] focus:ring-[#F9A825] disabled:opacity-40"
+                  />
                 </label>
+                )}
                 {!editingId && (
                   <button type="button" onClick={() => setForm(EMPTY_FORM)} className="text-xs font-medium text-gray-400 hover:text-red-500 flex items-center gap-1">
                     <Trash2 className="w-3 h-3" /> Clear all fields
