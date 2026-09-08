@@ -149,13 +149,20 @@ export function InvoicePage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-3xl overflow-hidden rounded-xl border bg-white shadow-lg print:rounded-none print:border-none print:shadow-none">
+      {/* overflow-hidden clips anything inside wider than max-w-3xl - fine on screen, but on a
+          printed page (wider physical canvas than a screen-oriented 768px cap) it silently cut
+          off right-aligned content instead of the box just using the extra space. print:w-full
+          + print:overflow-visible let it use the real page width and never hide overflow. */}
+      <div className="mx-auto max-w-3xl print:max-w-full print:w-full overflow-hidden print:overflow-visible rounded-xl border bg-white shadow-lg print:rounded-none print:border-none print:shadow-none">
         <div className="h-3 bg-gradient-to-r from-[#D32F2F] to-[#F9A825]" />
 
+        {/* Vertical spacing tightened for print (mt-8 -> print:mt-4, etc. throughout this
+            section) - a longer invoice (many items) was just tall enough to spill "Salamat po
+            for shopping" onto an otherwise-empty second page. Screen spacing is unchanged. */}
         <div className="p-8 sm:p-10 print:pt-4 print:pb-4 print:pl-4 print:pr-6">
-          <div className="flex flex-wrap items-start justify-between gap-6 border-b pb-8">
+          <div className="flex flex-wrap items-start justify-between gap-6 border-b pb-8 print:pb-4">
             <div>
-              <img src="/images/logo.png" alt="PinoyPantry" className="h-14 w-auto mb-2" />
+              <img src="/images/logo.png" alt="PinoyPantry" className="h-14 print:h-10 w-auto mb-2" />
               <p className="text-sm text-gray-500">Filipino grocery store</p>
               <p className="text-sm text-gray-500">Dunedin, New Zealand</p>
             </div>
@@ -172,7 +179,7 @@ export function InvoicePage() {
             </div>
           </div>
 
-          <div className="mt-8 grid gap-6 sm:grid-cols-2">
+          <div className="mt-8 print:mt-4 grid gap-6 print:gap-3 sm:grid-cols-2">
             <div>
               <p className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Bill To</p>
               <p className="mt-1 font-medium text-[#3E2723]">{order.customerName}</p>
@@ -220,8 +227,12 @@ export function InvoicePage() {
           {/* min-w-[420px] is fine on screen (overflow-x-auto lets it scroll), but printing/
               saving as PDF doesn't scroll - on a narrow mobile print canvas that forced
               minimum just got clipped off the page edge instead of shrinking to fit. */}
-          <div className="mt-8 overflow-x-auto">
-            <table className="w-full min-w-[420px] print:min-w-0 text-sm">
+          {/* text-sm -> print:text-xs on the table specifically (not the whole invoice) -
+              this is the one lever that scales WITH item count, since it shrinks every row,
+              not just fixed margins - an order with many items needs more than tighter
+              margins alone can reclaim. */}
+          <div className="mt-8 print:mt-4 overflow-x-auto">
+            <table className="w-full min-w-[420px] print:min-w-0 text-sm print:text-xs">
               <thead>
                 <tr className="border-b text-left text-xs font-semibold tracking-wide text-gray-400 uppercase">
                   <th className="pb-2">Item</th>
@@ -231,19 +242,27 @@ export function InvoicePage() {
                 </tr>
               </thead>
               <tbody>
+                {/* print:break-inside-avoid on each row - rather than counting items to force
+                    a page break at some fixed number (fragile: a wrapped long product name
+                    would throw off any fixed count), this just tells the browser to never
+                    split a single row across pages. Whatever number of rows actually fits on
+                    a page fits, and the rest flow to page 2+ automatically - no ceiling, no
+                    magic number to maintain. Chrome also repeats <thead> on each printed page
+                    by default once a table spans more than one, so a second page stays
+                    readable with column labels instead of just bare numbers. */}
                 {order.items.map((item, i) => (
-                  <tr key={i} className="border-b border-dashed">
-                    <td className="py-2.5 text-[#3E2723]">{item.productName}</td>
-                    <td className="py-2.5 text-center text-gray-600">{item.quantity}</td>
-                    <td className="py-2.5 text-right text-gray-600">${item.price.toFixed(2)}</td>
-                    <td className="py-2.5 text-right font-medium text-[#3E2723]">${(item.price * item.quantity).toFixed(2)}</td>
+                  <tr key={i} className="border-b border-dashed print:break-inside-avoid">
+                    <td className="py-2.5 print:py-1 text-[#3E2723]">{item.productName}</td>
+                    <td className="py-2.5 print:py-1 text-center text-gray-600">{item.quantity}</td>
+                    <td className="py-2.5 print:py-1 text-right text-gray-600">${item.price.toFixed(2)}</td>
+                    <td className="py-2.5 print:py-1 text-right font-medium text-[#3E2723]">${(item.price * item.quantity).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 print:mt-2 flex justify-end">
             <div className="w-full max-w-[220px]">
               {order.deliveryFee !== null && order.deliveryFee !== 0 && (
                 <div className="flex justify-between pt-2 text-sm text-gray-500">
@@ -259,21 +278,21 @@ export function InvoicePage() {
           </div>
 
           {order.notes && (
-            <div className="mt-6 rounded-lg bg-gray-50 p-4 text-sm">
+            <div className="mt-6 print:mt-3 rounded-lg bg-gray-50 p-4 print:p-2.5 text-sm">
               <p className="font-medium text-[#3E2723]">Order notes</p>
               <p className="mt-1 text-gray-500">{order.notes}</p>
             </div>
           )}
 
           {order.status === 'Paid' || order.status === 'Completed' ? (
-            <div className="mt-8 rounded-lg border-2 border-dashed border-green-400 bg-green-50 p-5">
+            <div className="mt-8 print:mt-3 rounded-lg border-2 border-dashed border-green-400 bg-green-50 p-5 print:p-3 print:break-inside-avoid">
               <p className="text-sm font-semibold text-green-800">✅ Payment Received</p>
               <p className="mt-1 text-sm text-green-700">
                 {order.channel === 'Walk-in' ? 'Paid in-store.' : 'Payment has been received.'} No further action needed.
               </p>
             </div>
           ) : order.status === 'Pending' ? (
-            <div className="mt-8 rounded-lg border-2 border-dashed border-[#F9A825]/50 bg-yellow-50 p-5">
+            <div className="mt-8 print:mt-3 rounded-lg border-2 border-dashed border-[#F9A825]/50 bg-yellow-50 p-5 print:p-3 print:break-inside-avoid">
               <p className="text-sm font-semibold text-[#3E2723]">Payment Instructions</p>
               <p className="mt-1 text-sm text-gray-600">
                 {order.channel === 'Walk-in'
@@ -284,7 +303,7 @@ export function InvoicePage() {
                   most of the row on the short labels (e.g. "Bank") and left too little for
                   longer values (e.g. two people's names on the account), wrapping them
                   awkwardly despite plenty of free space to the right. */}
-              <div className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm sm:w-2/3">
+              <div className="mt-3 print:mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm sm:w-2/3">
                 <span className="text-gray-500">Account Name</span>
                 <span className="font-medium text-[#3E2723]">{bank?.accountName ?? 'Loading...'}</span>
                 <span className="text-gray-500">Bank</span>
@@ -297,7 +316,7 @@ export function InvoicePage() {
             </div>
           ) : null}
 
-          <p className="mt-8 text-center text-xs text-gray-400">Salamat po for shopping with PinoyPantry!</p>
+          <p className="mt-8 print:mt-3 text-center text-xs text-gray-400">Salamat po for shopping with PinoyPantry!</p>
         </div>
       </div>
     </div>

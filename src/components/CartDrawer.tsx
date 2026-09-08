@@ -21,8 +21,14 @@ export function CartDrawer({ isOpen, onClose, onCheckout }: CartDrawerProps) {
   return (
     <>
       {/* Backdrop Overlay */}
+      {/* print:hidden on both — position:fixed elements are unreliable in print (there's no
+          persistent "viewport" across pages the way there is on screen), so the transform
+          that correctly hides this off-screen when closed doesn't reliably hide it when
+          printing. This is pure UI chrome; it should never appear in a printed page/PDF
+          regardless of open/closed state (this is what was bleeding into the printed
+          invoice on mobile). */}
       <div
-        className={`fixed inset-0 bg-black/50 transition-opacity duration-300 z-40 ${
+        className={`fixed inset-0 bg-black/50 transition-opacity duration-300 z-40 print:hidden ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
@@ -30,7 +36,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout }: CartDrawerProps) {
 
       {/* Sliding Cart Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full w-full sm:w-[450px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
+        className={`fixed top-0 right-0 h-full w-full sm:w-[450px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col print:hidden ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
