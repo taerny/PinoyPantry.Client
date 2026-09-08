@@ -29,6 +29,17 @@ export function initAnalytics() {
   script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
   document.head.appendChild(script);
 
+  // Google Consent Mode (default) — gtag.js now withholds actual measurement hits until
+  // consent is explicitly granted, even outside the EU and with no cookie banner in play.
+  // This site doesn't run ads/remarketing, so only analytics_storage needs to be granted;
+  // the ad_* signals stay denied since nothing here uses them.
+  gtag('consent', 'default', {
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    analytics_storage: 'granted',
+  });
+
   gtag('js', new Date());
   gtag('config', GA_MEASUREMENT_ID);
 }
