@@ -152,7 +152,7 @@ export function InvoicePage() {
       <div className="mx-auto max-w-3xl overflow-hidden rounded-xl border bg-white shadow-lg print:rounded-none print:border-none print:shadow-none">
         <div className="h-3 bg-gradient-to-r from-[#D32F2F] to-[#F9A825]" />
 
-        <div className="p-8 sm:p-10 print:p-4">
+        <div className="p-8 sm:p-10 print:pt-4 print:pb-4 print:pl-4 print:pr-6">
           <div className="flex flex-wrap items-start justify-between gap-6 border-b pb-8">
             <div>
               <img src="/images/logo.png" alt="PinoyPantry" className="h-14 w-auto mb-2" />
