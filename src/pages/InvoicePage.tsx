@@ -155,7 +155,7 @@ export function InvoicePage() {
         <div className="p-8 sm:p-10">
           <div className="flex flex-wrap items-start justify-between gap-6 border-b pb-8">
             <div>
-              <p className="text-lg font-bold text-[#D32F2F]">PinoyPantry</p>
+              <img src="/images/logo.png" alt="PinoyPantry" className="h-14 w-auto mb-2" />
               <p className="text-sm text-gray-500">Filipino grocery store</p>
               <p className="text-sm text-gray-500">Dunedin, New Zealand</p>
             </div>
