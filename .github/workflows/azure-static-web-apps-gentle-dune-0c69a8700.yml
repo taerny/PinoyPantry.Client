@@ -34,6 +34,7 @@ jobs:
           ###### End of Repository/Build Configurations ######
         env:
           VITE_API_URL: https://pinoypantry-api-f0a8hbfwc6fwdfbg.australiaeast-01.azurewebsites.net
+          VITE_GA_MEASUREMENT_ID: G-YM9KQED6PX
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'

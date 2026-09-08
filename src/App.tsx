@@ -29,6 +29,7 @@ import { CartProvider, useCart } from './contexts/CartContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { HeroContentProvider, useHeroContent } from './contexts/HeroContentContext';
 import { useCategories } from './hooks/useCategories';
+import { trackPageView } from './lib/analytics';
 
 function AppContent() {
   const navigate = useNavigate();
@@ -45,6 +46,12 @@ function AppContent() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [location.pathname, location.hash]);
+
+  // Report each client-side route change to GA4 — a no-op in dev/without a Measurement ID,
+  // see lib/analytics.
+  useEffect(() => {
+    trackPageView(location.pathname + location.search);
+  }, [location.pathname, location.search]);
 
   // Don't render the real site (even for a flash) until we know both who's asking
   // (admin or not) and whether maintenance mode is on — avoids a content flicker.
