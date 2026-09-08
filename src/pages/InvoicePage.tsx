@@ -62,6 +62,17 @@ export function InvoicePage() {
       .catch(() => setError('Could not load this order.'));
   }, [id, user, isAdmin]);
 
+  // Browsers use the page title as the suggested filename when saving via print-to-PDF — so
+  // "Save as PDF" defaults to a sensible name (e.g. "Invoice-PP-00123.pdf") instead of
+  // whatever the tab happened to be called, which matters for admins downloading this to send
+  // to customers with no email (e.g. via Facebook Messenger).
+  useEffect(() => {
+    if (!order) return;
+    const previousTitle = document.title;
+    document.title = `Invoice-${order.invoiceNumber}`;
+    return () => { document.title = previousTitle; };
+  }, [order]);
+
   useEffect(() => {
     fetch(`${API_URL}/api/bank-details`)
       .then(res => res.json())
@@ -106,7 +117,7 @@ export function InvoicePage() {
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 print:bg-white print:py-0">
-      <div className="mx-auto mb-4 flex max-w-3xl items-center justify-between px-4 print:hidden">
+      <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between px-4 print:hidden">
         <Link to="/admin/orders" className="flex items-center gap-2 text-sm text-[#3E2723] hover:text-[#D32F2F] transition-colors">
           <ArrowLeft className="w-4 h-4" />
           Back to Orders
@@ -116,8 +127,17 @@ export function InvoicePage() {
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-[#3E2723] text-white hover:bg-[#2C1A17] transition-colors"
         >
           <Printer className="w-4 h-4" />
-          Print Invoice
+          Download / Print Invoice
         </button>
+      </div>
+
+      {/* No customer email? This is exactly what would've been emailed, bank details
+          included — download it here (choose "Save as PDF" in the dialog that opens) and
+          send it however works, e.g. Facebook Messenger. */}
+      <div className="mx-auto mb-4 max-w-3xl px-4 print:hidden">
+        <p className="text-xs text-gray-400 text-right">
+          Tip: in the dialog, set destination to <strong>"Save as PDF"</strong> to download a file you can send via Messenger or email.
+        </p>
       </div>
 
       {message && (
@@ -249,18 +269,13 @@ export function InvoicePage() {
                 {order.channel === 'Walk-in' ? 'Paid in-store.' : 'Payment has been received.'} No further action needed.
               </p>
             </div>
-          ) : order.status === 'Pending' && order.channel === 'Walk-in' ? (
-            <div className="mt-8 rounded-lg border-2 border-dashed border-[#F9A825]/50 bg-yellow-50 p-5">
-              <p className="text-sm font-semibold text-[#3E2723]">Payment Pending — Pay Later In-Store</p>
-              <p className="mt-1 text-sm text-gray-600">
-                Please settle <strong className="text-[#3E2723]">${order.total.toFixed(2)}</strong> at the store on your next visit. Use <strong className="text-[#3E2723]">{order.invoiceNumber}</strong> as your reference.
-              </p>
-            </div>
           ) : order.status === 'Pending' ? (
             <div className="mt-8 rounded-lg border-2 border-dashed border-[#F9A825]/50 bg-yellow-50 p-5">
               <p className="text-sm font-semibold text-[#3E2723]">Payment Instructions</p>
               <p className="mt-1 text-sm text-gray-600">
-                Please pay by bank transfer using the details below. Use <strong className="text-[#3E2723]">{order.invoiceNumber}</strong> as the payment reference.
+                {order.channel === 'Walk-in'
+                  ? <>Pay <strong className="text-[#3E2723]">${order.total.toFixed(2)}</strong> at the store on your next visit, or by bank transfer using the details below. Use <strong className="text-[#3E2723]">{order.invoiceNumber}</strong> as your reference either way.</>
+                  : <>Please pay by bank transfer using the details below. Use <strong className="text-[#3E2723]">{order.invoiceNumber}</strong> as the payment reference.</>}
               </p>
               <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:w-2/3">
                 <span className="text-gray-500">Account Name</span>
