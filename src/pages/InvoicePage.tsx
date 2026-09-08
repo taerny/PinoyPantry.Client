@@ -152,7 +152,7 @@ export function InvoicePage() {
       <div className="mx-auto max-w-3xl overflow-hidden rounded-xl border bg-white shadow-lg print:rounded-none print:border-none print:shadow-none">
         <div className="h-3 bg-gradient-to-r from-[#D32F2F] to-[#F9A825]" />
 
-        <div className="p-8 sm:p-10">
+        <div className="p-8 sm:p-10 print:p-4">
           <div className="flex flex-wrap items-start justify-between gap-6 border-b pb-8">
             <div>
               <img src="/images/logo.png" alt="PinoyPantry" className="h-14 w-auto mb-2" />
@@ -217,8 +217,11 @@ export function InvoicePage() {
             )}
           </div>
 
+          {/* min-w-[420px] is fine on screen (overflow-x-auto lets it scroll), but printing/
+              saving as PDF doesn't scroll - on a narrow mobile print canvas that forced
+              minimum just got clipped off the page edge instead of shrinking to fit. */}
           <div className="mt-8 overflow-x-auto">
-            <table className="w-full min-w-[420px] text-sm">
+            <table className="w-full min-w-[420px] print:min-w-0 text-sm">
               <thead>
                 <tr className="border-b text-left text-xs font-semibold tracking-wide text-gray-400 uppercase">
                   <th className="pb-2">Item</th>
