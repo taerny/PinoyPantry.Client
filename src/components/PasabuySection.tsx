@@ -1,8 +1,18 @@
 import { useState } from 'react';
-import { Calendar, Ship, MapPin, CheckCircle, MessageCircle } from 'lucide-react';
+import { Calendar, Ship, MapPin, CheckCircle, MessageCircle, Plus, X, Image as ImageIcon, Upload, Loader2 } from 'lucide-react';
 import { FacebookF } from './icons/FacebookF';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
+
+interface PasabuyItemForm {
+  productName: string;
+  quantity: string;
+  imageUrl: string;
+  notes: string;
+  uploading: boolean;
+}
+
+const EMPTY_ITEM: PasabuyItemForm = { productName: '', quantity: '1', imageUrl: '', notes: '', uploading: false };
 
 const HOW_IT_WORKS = [
   'Think of a product that you want.',
@@ -20,15 +30,60 @@ const PLEASE_NOTE = [
   'Please check your order carefully before submitting it.',
 ];
 
+const EMPTY_FORM = { name: '', phone: '', email: '', notes: '' };
+
 export function PasabuySection() {
-  const [form, setForm] = useState({ name: '', phone: '', email: '', itemsRequested: '', notes: '' });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [items, setItems] = useState<PasabuyItemForm[]>([{ ...EMPTY_ITEM }]);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  function updateItem(index: number, patch: Partial<PasabuyItemForm>) {
+    setItems(prev => prev.map((it, i) => i === index ? { ...it, ...patch } : it));
+  }
+
+  function addItem() {
+    setItems(prev => [...prev, { ...EMPTY_ITEM }]);
+  }
+
+  function removeItem(index: number) {
+    setItems(prev => prev.length === 1 ? prev : prev.filter((_, i) => i !== index));
+  }
+
+  async function handleItemImageSelect(index: number) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png,image/webp,image/gif';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      updateItem(index, { uploading: true });
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(`${API_URL}/api/pasabuy/upload-item-image`, { method: 'POST', body: formData });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Image upload failed.');
+        updateItem(index, { imageUrl: data.imageUrl, uploading: false });
+      } catch {
+        updateItem(index, { uploading: false });
+        setResult({ type: 'error', text: 'Could not upload that image — please try again.' });
+      }
+    };
+    input.click();
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim() || !form.phone.trim() || !form.itemsRequested.trim()) {
-      setResult({ type: 'error', text: "Please fill in your name, phone, and what you'd like to order." });
+    const validItems = items.filter(it => it.productName.trim());
+    if (!form.name.trim() || !form.phone.trim() || validItems.length === 0) {
+      setResult({ type: 'error', text: 'Please fill in your name, phone, and at least one item you\'d like to order.' });
+      return;
+    }
+    // An image upload is async — without this, clicking Submit right after picking a photo
+    // (before the upload finishes) would silently send the item with no image attached.
+    if (items.some(it => it.uploading)) {
+      setResult({ type: 'error', text: 'Please wait for your photo to finish uploading before submitting.' });
       return;
     }
     setSubmitting(true);
@@ -37,12 +92,21 @@ export function PasabuySection() {
       const res = await fetch(`${API_URL}/api/pasabuy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          items: validItems.map(it => ({
+            productName: it.productName.trim(),
+            quantity: parseInt(it.quantity, 10) || 1,
+            imageUrl: it.imageUrl || null,
+            notes: it.notes.trim() || null,
+          })),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || 'Could not submit your order. Please try again.');
       setResult({ type: 'success', text: data.message || 'Order request received!' });
-      setForm({ name: '', phone: '', email: '', itemsRequested: '', notes: '' });
+      setForm(EMPTY_FORM);
+      setItems([{ ...EMPTY_ITEM }]);
     } catch (err: any) {
       setResult({ type: 'error', text: err.message || 'Could not submit your order. Please try again.' });
     } finally {
@@ -188,15 +252,83 @@ export function PasabuySection() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">What would you like to order?</label>
-                  <textarea
-                    required
-                    rows={4}
-                    value={form.itemsRequested}
-                    onChange={e => setForm({ ...form, itemsRequested: e.target.value })}
-                    placeholder="e.g. 2x Nagaraya Garlic Snack, 1x Argentina Corned Beef 12oz, 3x SkyFlakes..."
-                    className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#F9A825] focus:border-transparent resize-none"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">What would you like to order?</label>
+                  <div className="space-y-3">
+                    {items.map((item, i) => (
+                      <div key={i} className="rounded-xl border border-gray-200 bg-gray-50/60 p-3">
+                        <div className="flex items-center gap-3">
+                          {/* Image upload/preview */}
+                          <button
+                            type="button"
+                            onClick={() => handleItemImageSelect(i)}
+                            disabled={item.uploading}
+                            className="flex-shrink-0 w-64 h-64 rounded-lg border-2 border-dashed border-gray-300 bg-white flex items-center justify-center overflow-hidden hover:border-[#F9A825] transition-colors disabled:opacity-60"
+                            title="Add a reference photo (optional)"
+                          >
+                            {item.uploading ? (
+                              <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+                            ) : item.imageUrl ? (
+                              <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="flex flex-col items-center text-gray-400 gap-1.5">
+                                <ImageIcon className="w-8 h-8" />
+                                <span className="text-xs">Add photo</span>
+                              </div>
+                            )}
+                          </button>
+
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <div className="flex gap-1.5">
+                              <input
+                                type="text"
+                                required={i === 0}
+                                value={item.productName}
+                                onChange={e => updateItem(i, { productName: e.target.value })}
+                                placeholder="e.g. Nagaraya Garlic Snack"
+                                className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#F9A825] focus:border-transparent"
+                              />
+                              <input
+                                type="number"
+                                min={1}
+                                value={item.quantity}
+                                onChange={e => updateItem(i, { quantity: e.target.value })}
+                                className="w-16 border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white text-center focus:outline-none focus:ring-2 focus:ring-[#F9A825] focus:border-transparent"
+                                title="Quantity"
+                              />
+                            </div>
+                            <input
+                              type="text"
+                              value={item.notes}
+                              onChange={e => updateItem(i, { notes: e.target.value })}
+                              placeholder="Variant/brand notes (optional) — e.g. spicy version, family size"
+                              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#F9A825] focus:border-transparent"
+                            />
+                          </div>
+
+                          {items.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeItem(i)}
+                              className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                              title="Remove item"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addItem}
+                    className="mt-2 flex items-center gap-1.5 text-sm font-medium text-[#D32F2F] hover:text-[#B71C1C] transition-colors"
+                  >
+                    <Plus className="w-4 h-4" /> Add Item
+                  </button>
+                  <p className="mt-1 text-[11px] text-gray-400 flex items-center gap-1">
+                    <Upload className="w-3 h-3" /> Tip: a reference photo helps us find the exact brand/packaging.
+                  </p>
                 </div>
 
                 <div>
@@ -216,10 +348,10 @@ export function PasabuySection() {
 
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || items.some(it => it.uploading)}
                   className="w-full bg-[#D32F2F] hover:bg-[#B71C1C] text-white font-semibold py-3.5 rounded-lg transition-colors disabled:opacity-60"
                 >
-                  {submitting ? 'Submitting...' : 'Submit Pasabuy Order'}
+                  {submitting ? 'Submitting...' : items.some(it => it.uploading) ? 'Uploading photo...' : 'Submit Pasabuy Order'}
                 </button>
 
                 <div className="pt-3 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-center gap-3 text-sm text-gray-500">
