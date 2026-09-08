@@ -5,18 +5,20 @@ import { ProductsGridSkeleton, Skeleton } from '../components/Skeleton';
 import { Filter } from 'lucide-react';
 import { useProductsByCategory } from '../hooks/useProducts';
 import { useCategory } from '../hooks/useCategories';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 type SortOption = 'featured' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc';
 
 export function CategoryPage() {
   const { slug } = useParams<{ slug: string }>();
   const [sortBy, setSortBy] = useState<SortOption>('featured');
-  
+
   const categorySlug = slug || 'all-products';
-  
+
   // Fetch data using hooks
   const { products: rawProducts, loading: productsLoading } = useProductsByCategory(categorySlug);
   const { category: categoryData, loading: categoryLoading } = useCategory(categorySlug);
+  useDocumentTitle(categoryData?.title ?? '');
 
   // Sort products based on selected option
   const products = [...rawProducts].sort((a, b) => {

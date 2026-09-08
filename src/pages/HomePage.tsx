@@ -7,10 +7,12 @@ import { PasabuySection } from '../components/PasabuySection';
 import { PromoCards } from '../components/PromoCards';
 import { useFeaturedProducts } from '../hooks/useProducts';
 import { scrollToSection } from '../utils/scrollToSection';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
 export function HomePage() {
+  useDocumentTitle('');
   const navigate = useNavigate();
   const location = useLocation();
   const { products: featuredProducts, loading: productsLoading } = useFeaturedProducts();

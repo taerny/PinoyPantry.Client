@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Mail, MapPin, Send, CheckCircle } from 'lucide-react';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export function ContactPage() {
+  useDocumentTitle('Contact Us');
   const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({
     name: '',

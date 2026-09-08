@@ -5,12 +5,14 @@ import { ProductsGridSkeleton, Skeleton } from '../components/Skeleton';
 import { Search, Filter, ArrowRight } from 'lucide-react';
 import ProductService from '../services/productService';
 import { Product } from '../types';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 type SortOption = 'featured' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc';
 
 export function SearchResultsPage() {
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get('q') || '';
+  useDocumentTitle(searchQuery ? `Search: ${searchQuery}` : 'Search');
   const [rawProducts, setRawProducts] = useState<Product[]>([]);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
