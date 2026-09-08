@@ -44,6 +44,7 @@ interface Product {
   code: string | null;
   qty: number | null; // pack size the Subtotal covers, e.g. 18 units/carton
   subtotal: number | null; // locked supplier invoice line amount
+  latestBatchCostPrice: number | null; // most recently added batch's cost, even if not selling yet
   profitAmount: number; // computed from the actual Price, not recommendedRetail
   gstAmount: number;
   gstRate: number;
@@ -60,7 +61,7 @@ interface InlineEdit {
   value: string;
 }
 
-const EMPTY_FORM = { name: '', description: '', price: '', costPrice: '', category: '', imageUrl: '', isPublished: false, margin: '', code: '', qty: '', subtotal: '' };
+const EMPTY_FORM = { name: '', description: '', price: '', category: '', imageUrl: '', isPublished: false, margin: '', code: '' };
 
 // Reads a failed fetch Response and returns a human-readable message.
 // Handles both { message: "..." } and FluentValidation's
@@ -160,14 +161,11 @@ export function AdminProductsPage() {
       name: form.name,
       description: form.description,
       price: parseFloat(form.price) || 0,
-      costPrice: effectiveCostPrice,
       category: form.category,
       imageUrl: form.imageUrl,
       isPublished: form.isPublished,
       margin: form.margin === '' ? null : (parseFloat(form.margin) || 0) / 100,
       code: form.code || null,
-      qty: form.qty === '' ? null : parseInt(form.qty, 10) || null,
-      subtotal: form.subtotal === '' ? null : parseFloat(form.subtotal),
     };
 
     try {
@@ -253,13 +251,10 @@ export function AdminProductsPage() {
       description: product.description ?? '',
       imageUrl: product.imageUrl ?? '',
       price: parseFloat(inlineEdit.value) || (product.price ?? 0),
-      costPrice: product.costPrice ?? 0,
       category: product.category ?? '',
       isPublished: product.isPublished ?? false,
       margin: product.margin,
       code: product.code,
-      qty: product.qty,
-      subtotal: product.subtotal,
     };
 
     setInlineEdit(null);
@@ -307,13 +302,10 @@ export function AdminProductsPage() {
       description: product.description ?? '',
       imageUrl: product.imageUrl ?? '',
       price: newPrice,
-      costPrice: product.costPrice ?? 0,
       category: product.category ?? '',
       isPublished: product.isPublished ?? false,
       margin: product.margin,
       code: product.code,
-      qty: product.qty,
-      subtotal: product.subtotal,
     };
 
     setProducts(prev => prev.map(p => p.id === product.id ? { ...p, price: newPrice } : p));
@@ -348,13 +340,10 @@ export function AdminProductsPage() {
           description: product.description ?? '',
           imageUrl: product.imageUrl ?? '',
           price: product.price ?? 0,
-          costPrice: product.costPrice ?? 0,
           category: product.category ?? '',
           isPublished: nextPublished,
           margin: product.margin,
           code: product.code,
-          qty: product.qty,
-          subtotal: product.subtotal,
         }),
       });
       if (!res.ok) throw new Error(await extractErrorMessage(res, 'Failed to update publish status.'));
@@ -370,14 +359,11 @@ export function AdminProductsPage() {
       name: product.name ?? '',
       description: product.description ?? '',
       price: String(product.price ?? 0),
-      costPrice: String(product.costPrice ?? 0),
       category: product.category ?? '',
       imageUrl: product.imageUrl ?? '',
       isPublished: product.isPublished ?? false,
       margin: product.margin === null || product.margin === undefined ? '' : String(Math.round(product.margin * 1000) / 10),
       code: product.code ?? '',
-      qty: product.qty === null || product.qty === undefined ? '' : String(product.qty),
-      subtotal: product.subtotal === null || product.subtotal === undefined ? '' : String(product.subtotal),
     });
     setEditingId(product.id);
     setShowForm(true);
@@ -416,10 +402,13 @@ export function AdminProductsPage() {
 
   // Live pricing preview — mirrors PricingCalculator.cs exactly, purely for instant UX feedback.
   // The server recomputes RecommendedRetail authoritatively on save regardless of this preview.
-  const parsedSubtotal = form.subtotal === '' ? null : parseFloat(form.subtotal);
-  const parsedQty = form.qty === '' ? null : parseInt(form.qty, 10);
-  const derivedCostPrice = (parsedSubtotal !== null && parsedQty !== null && parsedQty > 0) ? parsedSubtotal / parsedQty : null;
-  const effectiveCostPrice = derivedCostPrice !== null ? derivedCostPrice : (parseFloat(form.costPrice) || 0);
+  // Cost Price itself is no longer form input — it's whatever the product's current
+  // batch-synced cost is (0 for a brand-new product with no batches yet).
+  const effectiveCostPrice = editingId ? (products.find(p => p.id === editingId)?.costPrice ?? 0) : 0;
+  // Only worth surfacing when it's a real heads-up — i.e. a newer batch exists at a different
+  // cost than what's currently selling. Same value (or no second batch yet) shows nothing.
+  const latestBatchCostPrice = editingId ? (products.find(p => p.id === editingId)?.latestBatchCostPrice ?? null) : null;
+  const upcomingCostChange = latestBatchCostPrice !== null && latestBatchCostPrice !== effectiveCostPrice ? latestBatchCostPrice : null;
   const parsedMarginPct = form.margin === '' ? null : parseFloat(form.margin);
   const recommendedPricePreview = (parsedMarginPct !== null && parsedMarginPct < 100)
     ? (effectiveCostPrice / (1 - parsedMarginPct / 100)) / (1 - GST_RATE)
@@ -438,7 +427,7 @@ export function AdminProductsPage() {
   const priceIsBreakeven = priceBelowCost && priceBreakdown !== null && Math.abs(priceBreakdown.profitAmount) < 0.01;
 
   // Keep Store Price in sync with the live Recommended Retail (opening the modal, and any
-  // Qty/Margin/Subtotal change) until the admin types directly into Store Price themselves.
+  // Margin change) until the admin types directly into Store Price themselves.
   useEffect(() => {
     if (!priceOverridden && recommendedPricePreview !== null && recommendedPricePreview > 0) {
       setForm(f => ({ ...f, price: recommendedPricePreview.toFixed(2) }));
@@ -488,7 +477,7 @@ export function AdminProductsPage() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-4">
           <h2 className="text-xl font-bold text-[#3E2723]">Product Management</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Click price or stock to edit inline. Open a product to set Invoice Qty/Margin from the supplier invoice — Cost Price and Recommended Retail are always auto-computed from those. Stock Quantity is separate and never affects them.</p>
+          <p className="text-xs text-gray-400 mt-0.5">Click price to edit inline. Click stock to manage batches — cost, quantity, and Recommended Retail are all tracked per batch and update automatically as stock sells through.</p>
         </div>
 
         <div className="mb-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -633,71 +622,43 @@ export function AdminProductsPage() {
                   </button>
                 </div>
 
-                {/* From-supplier pricing flow: admin transcribes Code/Subtotal/Qty from the
-                    invoice — Cost Price is then always auto-derived (Subtotal ÷ Qty) and never
-                    directly editable. These are historical invoice numbers, not stock — editing
-                    Store Quantity below never touches them. Margin is a plain net-profit percent
-                    (e.g. 20 for 20%, not 0.20) — GST is added automatically, never typed.
-                    Styled as a "danger zone" since these numbers ripple into Cost Price and
-                    Recommended Retail sitewide — should be touched carefully, not casually. */}
+                {/* Supplier tab is now just the product code — cost, quantity, and per-batch
+                    subtotal all live on Batches (opened after saving), not here. Margin and
+                    Recommended Retail moved to the Store tab since they're a store pricing
+                    decision, not a fact from the supplier invoice. */}
                 {pricingTab === 'supplier' && (
                 <div className="rounded-xl border-2 border-amber-400/60 bg-amber-50/60 p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <AlertTriangle className="w-4 h-4 text-amber-600" />
-                    <h4 className="text-sm font-bold text-amber-800 uppercase tracking-wide">Danger Zone — Supplier Invoice</h4>
+                    <h4 className="text-sm font-bold text-amber-800 uppercase tracking-wide">Supplier</h4>
                   </div>
-                  <p className="text-[11px] text-amber-700/80 mb-3">Historical numbers from the actual supplier invoice. Changing these recalculates Cost Price and Recommended Retail.</p>
+                  <p className="text-[11px] text-amber-700/80 mb-3">
+                    Cost, quantity, and per-shipment subtotal are all tracked per batch now — use the Batches button after saving. This is just the supplier's own product code, for matching future invoices to this product.
+                  </p>
 
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-xs font-medium text-amber-700/80 mb-1 flex items-center gap-1">
-                        <Lock className="w-2.5 h-2.5" /> Code
-                      </label>
-                      <p className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white/70 text-sm font-medium text-gray-600">{form.code || '—'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-amber-700/80 mb-1">Invoice Subtotal ($)</label>
-                      <input type="number" step="0.01" min="0" value={form.subtotal} onChange={e => setForm({ ...form, subtotal: e.target.value })} placeholder="From invoice" className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-xs font-medium text-amber-700/80 mb-1">Invoice Qty</label>
-                      <input
-                        type="number" min="0" value={form.qty}
-                        onChange={e => setForm({ ...form, qty: e.target.value })}
-                        placeholder="Pack size on the invoice"
-                        className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
-                      />
-                      <p className="mt-1 text-[10px] text-amber-700/70">Fixed historical value — doesn't change with stock</p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-amber-700/80 mb-1 flex items-center gap-1">
-                        <Lock className="w-2.5 h-2.5" /> Cost Price ($)
-                      </label>
-                      <p className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white/70 text-sm font-medium text-gray-600">
-                        {derivedCostPrice !== null ? `$${derivedCostPrice.toFixed(2)}` : (form.costPrice ? `$${parseFloat(form.costPrice).toFixed(2)}` : '—')}
-                      </p>
-                      <p className="mt-1 text-[10px] text-amber-700/70">Auto: Subtotal ÷ Invoice Qty</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-amber-700/80 mb-1">Profit Margin</label>
-                      <input type="number" step="0.1" min="0" max="99" value={form.margin} onChange={e => setForm({ ...form, margin: e.target.value })} placeholder="e.g. 20" className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                      <p className="mt-1 text-[10px] text-amber-700/70">Enter as a whole % — 20 means 20%, not 0.20. Net profit only; GST (15%) is added automatically.</p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-amber-700/80 mb-1 flex items-center gap-1">
-                        <Lock className="w-2.5 h-2.5" /> Recommended Retail
-                      </label>
-                      <p className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white/70 text-sm font-medium text-gray-600">
-                        {recommendedPricePreview !== null ? `$${recommendedPricePreview.toFixed(2)}` : '—'}
-                      </p>
-                      <p className="mt-1 text-[10px] text-amber-700/70">Auto: Cost + Margin + GST</p>
-                    </div>
+                  <div>
+                    <label className="block text-xs font-medium text-amber-700/80 mb-1 flex items-center gap-1">
+                      {editingId && <Lock className="w-2.5 h-2.5" />} Supplier Code {!editingId && '(optional)'}
+                    </label>
+                    {editingId ? (
+                      <>
+                        <p className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white/70 text-sm font-medium text-gray-600">
+                          {form.code || '—'}
+                        </p>
+                        <p className="mt-1 text-[10px] text-amber-700/70">Locked once a product exists — changing it would break matching future invoices to this product.</p>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          type="text"
+                          value={form.code}
+                          onChange={e => setForm({ ...form, code: e.target.value })}
+                          placeholder="e.g. UFC-0001-018"
+                          className="w-full px-3 py-2 border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        />
+                        <p className="mt-1 text-[10px] text-amber-700/70">Leave blank and one auto-generates. Locked after saving.</p>
+                      </>
+                    )}
                   </div>
                 </div>
                 )}
@@ -718,6 +679,39 @@ export function AdminProductsPage() {
                         ? `${products.find(p => p.id === editingId)?.stockQuantity ?? 0} on hand — managed via batches, not edited here.`
                         : 'Starts at 0 — add a batch after saving to bring in stock.'}
                     </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-blue-700/80 mb-1 flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" /> Cost Price ($)
+                      </label>
+                      <p className="w-full px-3 py-2 border border-blue-200 rounded-lg bg-white/70 text-sm font-medium text-gray-600">
+                        {effectiveCostPrice > 0 ? `$${effectiveCostPrice.toFixed(2)}` : '—'}
+                      </p>
+                      <p className="mt-1 text-[10px] text-blue-700/70">From the batch currently selling — see Batches</p>
+                      {upcomingCostChange !== null && (
+                        <p className="mt-1 text-[10px] font-medium text-amber-600 flex items-center gap-1">
+                          <AlertTriangle className="w-2.5 h-2.5" />
+                          Latest batch cost: ${upcomingCostChange.toFixed(2)} — takes effect once current stock sells out
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-blue-700/80 mb-1">Profit Margin</label>
+                      <input type="number" step="0.1" min="0" max="99" value={form.margin} onChange={e => setForm({ ...form, margin: e.target.value })} placeholder="e.g. 20" className="w-full px-3 py-2 border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                      <p className="mt-1 text-[10px] text-blue-700/70">Whole % — 20 means 20%. GST (15%) added automatically.</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-blue-700/80 mb-1 flex items-center gap-1">
+                      <Lock className="w-2.5 h-2.5" /> Recommended Retail
+                    </label>
+                    <p className="w-full px-3 py-2 border border-blue-200 rounded-lg bg-white/70 text-sm font-medium text-gray-600">
+                      {recommendedPricePreview !== null ? `$${recommendedPricePreview.toFixed(2)}` : '—'}
+                    </p>
+                    <p className="mt-1 text-[10px] text-blue-700/70">Auto: Cost + Margin + GST</p>
                   </div>
 
                   {/* The one thing this whole form exists to set — the actual price customers pay. */}
@@ -807,7 +801,10 @@ export function AdminProductsPage() {
             productName={managingBatches.name}
             onClose={() => setManagingBatches(null)}
             onBatchesChange={(stock) => {
-              setProducts(prev => prev.map(p => p.id === managingBatches.id ? { ...p, stockQuantity: stock } : p));
+              // Adding/removing a batch also changes CostPrice and RecommendedRetail server-
+              // side (FIFO-synced) — a full refetch keeps those in sync too, not just stock,
+              // so Edit shows the real numbers immediately instead of stale cached ones.
+              fetchProducts();
               setManagingBatches(prev => (prev ? { ...prev, stockQuantity: stock } : prev));
             }}
           />
@@ -1003,16 +1000,10 @@ export function AdminProductsPage() {
                   Category <span className="text-gray-300 font-normal normal-case">(click to edit)</span>
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">
-                  Cost <span className="text-gray-300 font-normal normal-case">(click)</span>
+                  Cost
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                   Price <span className="text-gray-300 font-normal normal-case">(click)</span>
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden xl:table-cell whitespace-nowrap">
-                  Rec. Retail
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden xl:table-cell">
-                  Margin
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">
                   Stock <span className="text-gray-300 font-normal normal-case">(click)</span>
@@ -1080,16 +1071,6 @@ export function AdminProductsPage() {
                           ${Number(product.price ?? 0).toFixed(2)}
                         </button>
                       )}
-                    </td>
-
-                    {/* Recommended Retail — view only, edit via the modal */}
-                    <td className="px-4 py-3 text-right hidden xl:table-cell text-sm text-gray-500">
-                      {product.recommendedRetail === null || product.recommendedRetail === undefined ? '—' : `$${Number(product.recommendedRetail).toFixed(2)}`}
-                    </td>
-
-                    {/* Margin — view only, edit via the modal */}
-                    <td className="px-4 py-3 text-right hidden xl:table-cell text-sm text-gray-500">
-                      {product.margin === null || product.margin === undefined ? '—' : `${(Number(product.margin) * 100).toFixed(1)}%`}
                     </td>
 
                     {/* Stock — read only, managed via batches */}

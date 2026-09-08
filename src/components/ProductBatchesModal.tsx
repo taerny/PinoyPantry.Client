@@ -9,6 +9,8 @@ interface ProductBatch {
   batchNumber: string;
   quantity: number;
   remainingQuantity: number;
+  costPrice: number;
+  subtotal: number;
   bestBefore: string | null;
   createdAt: string;
 }
@@ -60,6 +62,7 @@ export function ProductBatchesModal({ productId, productName, onClose, onBatches
   const [saving, setSaving] = useState(false);
   const [batchNumber, setBatchNumber] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [costPrice, setCostPrice] = useState('');
   const [bestBefore, setBestBefore] = useState('');
 
   async function load() {
@@ -99,6 +102,7 @@ export function ProductBatchesModal({ productId, productName, onClose, onBatches
         body: JSON.stringify({
           batchNumber,
           quantity: parseInt(quantity, 10) || 0,
+          costPrice: parseFloat(costPrice) || 0,
           bestBefore: bestBefore || null,
         }),
       });
@@ -107,6 +111,7 @@ export function ProductBatchesModal({ productId, productName, onClose, onBatches
         throw new Error(err.message || 'Could not add batch.');
       }
       setQuantity('');
+      setCostPrice('');
       setBestBefore('');
       await load();
     } catch (err: any) {
@@ -168,6 +173,8 @@ export function ProductBatchesModal({ productId, productName, onClose, onBatches
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2">Remaining</th>
                     <th className="px-3 py-2">Sold</th>
+                    <th className="px-3 py-2">Cost/unit</th>
+                    <th className="px-3 py-2">Subtotal</th>
                     <th className="px-3 py-2">Best before</th>
                     <th className="px-3 py-2"></th>
                   </tr>
@@ -196,6 +203,8 @@ export function ProductBatchesModal({ productId, productName, onClose, onBatches
                           </div>
                         </td>
                         <td className="px-3 py-2.5 text-gray-500">{sold}</td>
+                        <td className="px-3 py-2.5 text-gray-600">${batch.costPrice.toFixed(2)}</td>
+                        <td className="px-3 py-2.5 text-gray-600">${batch.subtotal.toFixed(2)}</td>
                         <td className={`px-3 py-2.5 ${bb?.className ?? 'text-gray-400'}`}>{bb ? bb.label : '—'}</td>
                         <td className="px-3 py-2.5 text-right">
                           <button onClick={() => handleDelete(batch)} className="text-red-500 hover:bg-red-50 p-1 rounded" title="Delete batch">
@@ -234,6 +243,19 @@ export function ProductBatchesModal({ productId, productName, onClose, onBatches
                 className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
               />
             </div>
+            <div className="flex min-w-[100px] flex-1 flex-col gap-1">
+              <label className="text-xs text-gray-500">Cost price/unit</label>
+              <input
+                required
+                type="number"
+                step="0.01"
+                min={0}
+                value={costPrice}
+                onChange={e => setCostPrice(e.target.value)}
+                placeholder="From your cost document"
+                className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F9A825]"
+              />
+            </div>
             <div className="flex min-w-[140px] flex-1 flex-col gap-1">
               <label className="text-xs text-gray-500">Best before (optional)</label>
               <input
@@ -244,6 +266,11 @@ export function ProductBatchesModal({ productId, productName, onClose, onBatches
               />
             </div>
           </div>
+          {quantity && costPrice && (
+            <p className="text-xs text-gray-500">
+              Subtotal: <span className="font-medium text-[#3E2723]">${((parseFloat(costPrice) || 0) * (parseInt(quantity, 10) || 0)).toFixed(2)}</span> (computed, not editable)
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">
               Close

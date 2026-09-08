@@ -153,14 +153,24 @@ export function WalkInSaleModal({ onClose, onCreated }: WalkInSaleModalProps) {
             )}
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Items</label>
+          <div className={`rounded-xl border-2 p-3 transition-colors ${cart.length === 0 ? 'border-dashed border-gray-200' : 'border-[#F9A825]/50 bg-yellow-50/40'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-[#3E2723] uppercase tracking-wide flex items-center gap-1.5">
+                <ShoppingBag className="w-3.5 h-3.5" />
+                Items
+              </span>
+              {cart.length > 0 && (
+                <span className="text-[10px] font-semibold text-white bg-[#D32F2F] rounded-full px-2 py-0.5">
+                  {cart.reduce((sum, i) => sum + i.quantity, 0)} item{cart.reduce((sum, i) => sum + i.quantity, 0) === 1 ? '' : 's'}
+                </span>
+              )}
+            </div>
             {cart.length === 0 ? (
-              <p className="text-sm text-gray-400 italic py-3 text-center border border-dashed rounded-lg">No items added yet</p>
+              <p className="text-sm text-gray-400 italic py-3 text-center">Search above to add products</p>
             ) : (
               <div className="space-y-1.5">
                 {cart.map(item => (
-                  <div key={item.productId} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                  <div key={item.productId} className="flex items-center gap-2 bg-white border border-yellow-200 rounded-lg px-3 py-2 shadow-sm">
                     <span className="flex-1 text-sm text-gray-700 truncate">{item.name}</span>
                     <div className="flex items-center border rounded bg-white">
                       <button onClick={() => updateQuantity(item.productId, -1)} className="p-1 hover:bg-gray-100" disabled={item.quantity <= 1}>
@@ -171,7 +181,7 @@ export function WalkInSaleModal({ onClose, onCreated }: WalkInSaleModalProps) {
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
-                    <span className="text-sm text-gray-600 w-16 text-right">${(item.price * item.quantity).toFixed(2)}</span>
+                    <span className="text-sm font-medium text-[#3E2723] w-16 text-right">${(item.price * item.quantity).toFixed(2)}</span>
                     <button onClick={() => removeFromCart(item.productId)} className="text-red-500 hover:bg-red-50 p-1 rounded">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

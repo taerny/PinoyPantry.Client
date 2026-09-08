@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Upload, FileText, Check, AlertCircle, X, Trash2, ArrowRight } from 'lucide-react';
+import { Upload, FileText, Check, AlertCircle, X, Trash2, ArrowRight, File } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AdminLayout } from '../components/AdminLayout';
 
@@ -29,14 +29,100 @@ function findColumn(row: ImportRow, role: ColumnRole) {
   return row.columns.find(c => c.role === role);
 }
 
+interface PdfImportRow {
+  code: string;
+  name: string;
+  alreadyExists: boolean;
+}
+
 export function AdminImportPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
+  const [mode, setMode] = useState<'excel' | 'pdf'>('excel');
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [fileName, setFileName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // PDF invoice import — deliberately much simpler than the Excel flow: Code + Name only.
+  // Quantity/Cost are never trusted from the PDF (unreliable — see AdminProductsPage/Batches),
+  // so every imported row is a draft the admin completes afterward via Edit + Batches.
+  const [pdfRows, setPdfRows] = useState<PdfImportRow[]>([]);
+  const [pdfFileName, setPdfFileName] = useState('');
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [pdfImporting, setPdfImporting] = useState(false);
+  const pdfFileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handlePdfFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setPdfFileName(file.name);
+    setMessage(null);
+    setPdfUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${API_URL}/api/products/import/pdf-preview`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${user.token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to read PDF.');
+      }
+      const parsed: PdfImportRow[] = await res.json();
+      setPdfRows(parsed);
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to read PDF.' });
+    } finally {
+      setPdfUploading(false);
+    }
+  }
+
+  function updatePdfRow(index: number, field: 'code' | 'name', value: string) {
+    setPdfRows(prev => prev.map((r, i) => i === index ? { ...r, [field]: value } : r));
+  }
+
+  function removePdfRow(index: number) {
+    setPdfRows(prev => prev.filter((_, i) => i !== index));
+  }
+
+  function clearPdfAll() {
+    setPdfRows([]);
+    setPdfFileName('');
+    setMessage(null);
+    if (pdfFileInputRef.current) pdfFileInputRef.current.value = '';
+  }
+
+  async function handlePdfImport() {
+    if (!user) return;
+    const toImport = pdfRows.filter(r => !r.alreadyExists);
+    if (toImport.length === 0) return;
+    setPdfImporting(true);
+    setMessage(null);
+
+    try {
+      const res = await fetch(`${API_URL}/api/products/import/pdf-confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
+        body: JSON.stringify(toImport.map(r => ({ code: r.code, name: r.name }))),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Import failed');
+      }
+      const data = await res.json();
+      setMessage({ type: 'success', text: data.message });
+      clearPdfAll();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Import failed.' });
+    } finally {
+      setPdfImporting(false);
+    }
+  }
 
   // Uploads the raw file as-is (.csv or .xlsx) — the API parses it (including guessing any
   // missing Category) and hands back every column from the sheet, in its original order,
@@ -156,7 +242,30 @@ export function AdminImportPage() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-6">
           <h2 className="text-xl font-bold text-[#3E2723]">Import Products</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Upload your supplier pricing sheet as-is (.xlsx or .csv) — every column shows up exactly as in your file, plus a Category you set here. Selling price isn't set here — every imported product starts at $0 and you set its price afterward in Product Management, along with publishing it.</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {mode === 'excel'
+              ? 'Upload your supplier pricing sheet as-is (.xlsx or .csv) — every column shows up exactly as in your file, plus a Category you set here. Selling price isn\'t set here — every imported product starts at $0 and you set its price afterward in Product Management, along with publishing it.'
+              : "Upload a supplier invoice PDF — just the product code and name get pulled out (quantity/unit price on invoices aren't reliable, so they're never trusted here). Each row becomes a draft product; set its category, cost, and quantity afterward via Edit and Batches."}
+          </p>
+        </div>
+
+        <div className="flex gap-1 p-1 mb-5 bg-gray-100 border border-gray-200 rounded-xl w-fit">
+          <button
+            onClick={() => setMode('excel')}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              mode === 'excel' ? 'bg-white text-[#D32F2F] border border-red-200 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" /> Excel / CSV
+          </button>
+          <button
+            onClick={() => setMode('pdf')}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              mode === 'pdf' ? 'bg-white text-[#D32F2F] border border-red-200 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <File className="w-3.5 h-3.5" /> Invoice PDF
+          </button>
         </div>
 
         {message && (
@@ -172,7 +281,7 @@ export function AdminImportPage() {
           </div>
         )}
 
-        {rows.length === 0 ? (
+        {mode === 'excel' && (rows.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-dashed border-gray-300 p-12 text-center">
             <Upload className="w-10 h-10 text-gray-300 mx-auto mb-3" />
             <p className="text-sm text-gray-600 mb-1">Upload your pricing sheet — <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">.xlsx</code> or <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">.csv</code>, whatever you already use</p>
@@ -272,7 +381,89 @@ export function AdminImportPage() {
               </table>
             </div>
           </>
-        )}
+        ))}
+
+        {mode === 'pdf' && (pdfRows.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-dashed border-gray-300 p-12 text-center">
+            <Upload className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-sm text-gray-600 mb-1">Upload a supplier invoice — <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">.pdf</code></p>
+            <p className="text-xs text-gray-400 mb-1">Only the product code and name get extracted. Quantity and unit price on invoices aren't reliable (sometimes a box total, sometimes per-item — no way to tell from the PDF alone), so they're never trusted here.</p>
+            <p className="text-xs text-gray-400 mb-4">Each row becomes an unpublished draft product. Set its category, cost, and quantity afterward via Edit and the Batches button — cost/quantity always come from your own cost document, never from the invoice PDF.</p>
+            <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#D32F2F] text-white rounded-xl text-sm font-medium hover:bg-[#B71C1C] transition-colors cursor-pointer">
+              <File className="w-4 h-4" />
+              {pdfUploading ? 'Reading PDF...' : 'Choose PDF'}
+              <input ref={pdfFileInputRef} type="file" accept=".pdf" onChange={handlePdfFileSelect} disabled={pdfUploading} className="hidden" />
+            </label>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm font-medium text-[#3E2723]">{pdfFileName} — {pdfRows.length} row(s) found</p>
+                {pdfRows.some(r => r.alreadyExists) && (
+                  <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> {pdfRows.filter(r => r.alreadyExists).length} row(s) already exist (matching product code) — these are skipped automatically, not re-created.
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={clearPdfAll} className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-600 rounded-xl text-sm font-medium hover:border-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+                  <Trash2 className="w-4 h-4" /> Cancel
+                </button>
+                <button onClick={handlePdfImport} disabled={pdfImporting || pdfRows.every(r => r.alreadyExists)} className="flex items-center gap-2 px-4 py-2 bg-[#D32F2F] text-white rounded-xl text-sm font-medium hover:bg-[#B71C1C] transition-colors shadow-sm disabled:opacity-50">
+                  {pdfImporting ? 'Importing...' : `Import ${pdfRows.filter(r => !r.alreadyExists).length} Product(s)`}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border overflow-auto max-h-[70vh]">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b sticky top-0 z-10">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Code</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Name</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {pdfRows.map((row, i) => (
+                    <tr key={i} className={`hover:bg-gray-50/50 ${row.alreadyExists ? 'opacity-50' : ''}`}>
+                      <td className="px-4 py-2">
+                        <input
+                          value={row.code}
+                          disabled={row.alreadyExists}
+                          onChange={e => updatePdfRow(i, 'code', e.target.value)}
+                          className="w-32 text-sm px-2 py-1 border border-transparent hover:border-gray-200 focus:border-[#F9A825] rounded focus:outline-none font-mono"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          value={row.name}
+                          disabled={row.alreadyExists}
+                          onChange={e => updatePdfRow(i, 'name', e.target.value)}
+                          className="w-full text-sm px-2 py-1 border border-transparent hover:border-gray-200 focus:border-[#F9A825] rounded focus:outline-none"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        {row.alreadyExists ? (
+                          <span className="text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 whitespace-nowrap">already exists</span>
+                        ) : (
+                          <span className="text-[10px] font-medium text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 whitespace-nowrap">new</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <button onClick={() => removePdfRow(i)} className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Remove row">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ))}
       </div>
     </AdminLayout>
   );
