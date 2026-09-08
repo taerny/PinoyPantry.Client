@@ -277,7 +277,11 @@ export function InvoicePage() {
                   ? <>Pay <strong className="text-[#3E2723]">${order.total.toFixed(2)}</strong> at the store on your next visit, or by bank transfer using the details below. Use <strong className="text-[#3E2723]">{order.invoiceNumber}</strong> as your reference either way.</>
                   : <>Please pay by bank transfer using the details below. Use <strong className="text-[#3E2723]">{order.invoiceNumber}</strong> as the payment reference.</>}
               </p>
-              <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:w-2/3">
+              {/* grid-cols-[auto_1fr] instead of grid-cols-2 — an even 50/50 split wasted
+                  most of the row on the short labels (e.g. "Bank") and left too little for
+                  longer values (e.g. two people's names on the account), wrapping them
+                  awkwardly despite plenty of free space to the right. */}
+              <div className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm sm:w-2/3">
                 <span className="text-gray-500">Account Name</span>
                 <span className="font-medium text-[#3E2723]">{bank?.accountName ?? 'Loading...'}</span>
                 <span className="text-gray-500">Bank</span>
