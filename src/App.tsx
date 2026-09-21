@@ -23,6 +23,8 @@ import { AdminNewsletterPage } from './pages/AdminNewsletterPage';
 import { AdminPasabuyPage } from './pages/AdminPasabuyPage';
 import { InvoicePage } from './pages/InvoicePage';
 import { ContactPage } from './pages/ContactPage';
+import { TermsPage } from './pages/TermsPage';
+import { FaqPage } from './pages/FaqPage';
 import { PlayerStatsPage } from './pages/PlayerStatsPage';
 import { DesktopLayoutPage } from './pages/DesktopLayoutPage';
 import { CartProvider, useCart } from './contexts/CartContext';
@@ -149,6 +151,8 @@ function AppContent() {
           <Route path="/admin/pasabuy" element={<AdminPasabuyPage />} />
           <Route path="/admin/orders/:id/invoice" element={<InvoicePage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/faq" element={<FaqPage />} />
           <Route path="/player-stats" element={<PlayerStatsPage />} />
           <Route path="/desktop-layout" element={<DesktopLayoutPage />} />
         </Routes>

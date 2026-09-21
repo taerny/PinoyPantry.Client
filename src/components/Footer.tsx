@@ -47,7 +47,8 @@ export function Footer() {
               <li><span className="text-white/30 cursor-not-allowed text-sm" title="Coming soon">About Us</span></li>
               <li><a href="/category/all-products" className="text-white/80 hover:text-[#F9A825] transition-colors text-sm">Shop All</a></li>
               <li><span className="text-white/30 cursor-not-allowed text-sm" title="Coming soon">Deals &amp; Promos</span></li>
-              <li><span className="text-white/30 cursor-not-allowed text-sm" title="Coming soon">FAQs</span></li>
+              <li><a href="/faq" className="text-white/80 hover:text-[#F9A825] transition-colors text-sm">FAQs</a></li>
+              <li><a href="/terms" className="text-white/80 hover:text-[#F9A825] transition-colors text-sm">Terms &amp; Conditions</a></li>
             </ul>
           </div>
 

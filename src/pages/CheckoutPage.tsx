@@ -361,7 +361,7 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
               </button>
 
               <p className="text-xs text-center text-muted-foreground">
-                By placing your order, you agree to our terms and conditions
+                By placing your order, you agree to our <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#D32F2F]">terms and conditions</a>
               </p>
             </div>
           </div>
