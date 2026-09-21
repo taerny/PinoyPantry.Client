@@ -1,5 +1,5 @@
 import { ShoppingCart, Search, Menu, User, X, Shield, LogOut, Settings, ChevronDown } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../contexts/CartContext";
 import { scrollToSection } from "../utils/scrollToSection";
@@ -516,7 +516,10 @@ export function Header({
       {/* Desktop Navigation - Fixed height */}
       <nav className="bg-[#4A332E] border-t border-[#6D4C41] hidden md:block">
         <div className="container mx-auto px-4">
-          <ul className="flex items-center gap-8 py-2.5 overflow-x-auto">
+          {/* Wraps instead of scrolling: overflow-x-auto forces overflow-y to auto too, which
+              showed a scrollbar on ~14" laptops where 8 categories + Pasabuy don't fit in one
+              row. Gap tightens on smaller desktops so it usually still fits on one line. */}
+          <ul className="flex flex-wrap items-center justify-center gap-x-2 lg:gap-x-4 xl:gap-x-8 gap-y-1 py-2.5">
             <li>
               <button
                 onClick={() => onCategoryClick?.("all-products")}
@@ -530,7 +533,7 @@ export function Header({
               </button>
             </li>
             {categories.filter(c => c.slug !== 'all-products').map((category) => (
-              <li key={category.slug} className="contents">
+              <Fragment key={category.slug}>
                 <li>
                   <button
                     onClick={() => onCategoryClick?.(category.slug)}
@@ -553,7 +556,7 @@ export function Header({
                     </button>
                   </li>
                 )}
-              </li>
+              </Fragment>
             ))}
             {!categories.some(c => c.slug === 'dried-fish') && (
               <li>
