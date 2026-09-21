@@ -53,6 +53,8 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [confirmedInvoice, setConfirmedInvoice] = useState<string | null>(null);
+  const [confirmedTotal, setConfirmedTotal] = useState<number | null>(null);
+  const [bank, setBank] = useState<{ bankName: string; accountName: string; accountNumber: string } | null>(null);
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const phoneValid = isValidNzPhone(form.phone);
@@ -99,6 +101,11 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
         throw new Error(err.message || 'Could not place your order. Please try again.');
       }
       const order = await res.json();
+      // Fetched before clearing the cart so the confirmation screen can show payment details
+      // even for customers with no email (the email is the only other place they appear).
+      const bankRes = await fetch(`${API_URL}/api/bank-details`).catch(() => null);
+      setBank(bankRes?.ok ? await bankRes.json().catch(() => null) : null);
+      setConfirmedTotal(order.total);
       clearCart();
       setConfirmedInvoice(order.invoiceNumber);
     } catch (err: any) {
@@ -119,6 +126,24 @@ export function CheckoutPage({ onBack, onComplete }: CheckoutPageProps) {
             {form.email ? "We've sent a confirmation to your email. " : ''}
             We'll be in touch by phone shortly to confirm payment{feePending ? ' and delivery' : ''}.
           </p>
+          {bank && (
+            <div className="mb-6 rounded-lg border-2 border-dashed border-[#F9A825]/50 bg-yellow-50 p-4 text-left">
+              <p className="text-sm font-semibold text-[#3E2723]">Payment Instructions</p>
+              <p className="mt-1 text-sm text-gray-600">
+                Please pay{confirmedTotal !== null && !feePending ? <> <strong className="text-[#3E2723]">${confirmedTotal.toFixed(2)}</strong></> : ''} by bank transfer using the details below{feePending ? ' once we confirm your delivery fee' : ''}. Use <strong className="text-[#3E2723]">{confirmedInvoice}</strong> as the reference.
+              </p>
+              <div className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                <span className="text-gray-500">Account Name</span>
+                <span className="font-medium text-[#3E2723]">{bank.accountName}</span>
+                <span className="text-gray-500">Bank</span>
+                <span className="font-medium text-[#3E2723]">{bank.bankName}</span>
+                <span className="text-gray-500">Account Number</span>
+                <span className="font-medium text-[#3E2723]">{bank.accountNumber}</span>
+                <span className="text-gray-500">Reference</span>
+                <span className="font-medium text-[#3E2723]">{confirmedInvoice}</span>
+              </div>
+            </div>
+          )}
           <button
             onClick={onComplete}
             className="w-full px-4 py-2.5 bg-[#D32F2F] text-white rounded-xl text-sm font-medium hover:bg-[#B71C1C] transition-colors"
