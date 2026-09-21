@@ -117,11 +117,25 @@ export const ApiProductService = {
 
   async getProductsByCategory(categorySlug: string): Promise<Product[]> {
     if (categorySlug === 'all-products') {
-      const result = await this.getProducts();
-      return result.products;
+      return this.getAllProducts();
     }
-    const result = await this.getProducts({ category: categorySlug });
-    return result.products;
+    return this.getAllProducts({ category: categorySlug });
+  },
+
+  // getProducts() is paged (12 by default) - fine for the homepage's featured strip, but the
+  // "All Products" and category pages have no pager, so a single page silently showed only the
+  // first 12 items while implying that was everything. Walk every page instead.
+  async getAllProducts(filters?: ProductFilters): Promise<Product[]> {
+    const PAGE_SIZE = 100;
+    const all: Product[] = [];
+    let page = 1;
+    while (true) {
+      const result = await this.getProducts(filters, page, PAGE_SIZE);
+      all.push(...result.products);
+      if (!result.hasMore) break;
+      page++;
+    }
+    return all;
   },
 
   async getFeaturedProducts(): Promise<Product[]> {
