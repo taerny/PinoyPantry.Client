@@ -1,4 +1,4 @@
-import { Code2, ArrowRight, Store } from 'lucide-react';
+import { Code2, ArrowRight, Store, Trophy } from 'lucide-react';
 
 export function PromoCards() {
   return (
@@ -30,7 +30,7 @@ export function PromoCards() {
               <Store className="w-5 h-5 text-[#3E2723]" />
             </div>
             <p className="text-gray-600">
-              Also check out{' '}
+              Check out{' '}
               <span className="text-[#3E2723] font-semibold">Sugbo Delights NZ</span> — another
               local favourite, built by the same developer. Take a look at what they offer.
             </p>
@@ -42,6 +42,29 @@ export function PromoCards() {
             className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-[#3E2723] font-medium rounded-lg hover:bg-white transition-colors"
           >
             Visit Sugbo Delights <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+
+        {/* Metroball Promo */}
+        <div className="bg-gray-50 border border-gray-200 rounded-xl px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center flex-shrink-0 border border-gray-200">
+              <Trophy className="w-5 h-5 text-[#3E2723]" />
+            </div>
+            <p className="text-gray-600">
+              Also check out{' '}
+              <span className="text-[#3E2723] font-semibold">Metroball</span> — live scores,
+              standings, and team registration for local basketball leagues, built by the same
+              developer.
+            </p>
+          </div>
+          <a
+            href="https://metroball-client.onrender.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-[#3E2723] font-medium rounded-lg hover:bg-white transition-colors"
+          >
+            Visit Metroball <ArrowRight className="w-4 h-4" />
           </a>
         </div>
       </div>
