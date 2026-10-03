@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Printer, Check, AlertCircle, Trash2, Pencil } from 'lucide-react';
+import { ArrowLeft, Printer, Check, AlertCircle, Trash2, Pencil, XCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
@@ -57,6 +57,8 @@ export function InvoicePage() {
   const [savingItemId, setSavingItemId] = useState<number | null>(null);
   const [confirmRemoveId, setConfirmRemoveId] = useState<number | null>(null);
   const [removingItemId, setRemovingItemId] = useState<number | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (!id || !user || !isAdmin) return;
@@ -167,23 +169,67 @@ export function InvoicePage() {
     }
   }
 
+  // Cancels the whole order — the server returns every line's stock. Shared by the
+  // "Cancel order" button and removing the last line.
+  async function cancelOrder(): Promise<void> {
+    if (!order || !user) return;
+    const res = await fetch(`${API_URL}/api/orders/${order.id}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
+      body: JSON.stringify({ status: 'Cancelled' }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Could not cancel this order.');
+    }
+    setOrder(await res.json());
+    setQtyEdits({});
+  }
+
+  async function handleCancelOrder() {
+    setCancelling(true);
+    setMessage(null);
+    try {
+      await cancelOrder();
+      setMessage({ type: 'success', text: 'Order cancelled — all stock returned.' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Could not cancel this order.' });
+    } finally {
+      setCancelling(false);
+      setConfirmCancel(false);
+    }
+  }
+
   // Drop a line entirely. Its stock goes back and the total is recomputed on the server.
+  // Removing the last line means the customer returned everything, so the whole order is
+  // cancelled instead (the server returns all stock; a paid order then shows the full
+  // refund due).
   async function handleRemoveItem(item: OrderItem) {
     if (!order || !user) return;
+    const isLastLine = order.items.length === 1;
     setRemovingItemId(item.id);
     setMessage(null);
     try {
-      const res = await fetch(`${API_URL}/api/orders/${order.id}/items/${item.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${user.token}` },
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Could not remove this item.');
+      if (isLastLine) {
+        await cancelOrder();
+      } else {
+        const res = await fetch(`${API_URL}/api/orders/${order.id}/items/${item.id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${user.token}` },
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || 'Could not remove this item.');
+        }
+        setOrder(await res.json());
+        clearQtyEdit(item.id);
       }
-      setOrder(await res.json());
-      clearQtyEdit(item.id);
-      setMessage({ type: 'success', text: `Removed ${item.productName} — stock returned.` });
+      setMessage({
+        type: 'success',
+        text: isLastLine
+          ? 'All items returned — order cancelled and stock returned.'
+          : `Removed ${item.productName} — stock returned.`,
+      });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Could not remove this item.' });
     } finally {
@@ -239,13 +285,44 @@ export function InvoicePage() {
           <ArrowLeft className="w-4 h-4" />
           Back to Orders
         </Link>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-[#3E2723] text-white hover:bg-[#2C1A17] transition-colors"
-        >
-          <Printer className="w-4 h-4" />
-          Download / Print Invoice
-        </button>
+        <div className="flex items-center gap-2">
+          {isCorrectable && (
+            confirmCancel ? (
+              <span className="flex items-center gap-1">
+                <span className="text-xs text-red-600">Cancel the whole order? All stock goes back.</span>
+                <button
+                  disabled={cancelling}
+                  onClick={handleCancelOrder}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#D32F2F] text-white hover:bg-red-800 disabled:opacity-50"
+                >
+                  {cancelling ? 'Cancelling...' : 'Yes, cancel'}
+                </button>
+                <button
+                  disabled={cancelling}
+                  onClick={() => setConfirmCancel(false)}
+                  className="px-2.5 py-1.5 rounded-lg text-xs text-gray-600 hover:bg-gray-200 disabled:opacity-50"
+                >
+                  No
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setConfirmCancel(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+              >
+                <XCircle className="w-4 h-4" />
+                Cancel order
+              </button>
+            )
+          )}
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-[#3E2723] text-white hover:bg-[#2C1A17] transition-colors"
+          >
+            <Printer className="w-4 h-4" />
+            Download / Print Invoice
+          </button>
+        </div>
       </div>
 
       {/* No customer email? This is exactly what would've been emailed, bank details
@@ -382,10 +459,12 @@ export function InvoicePage() {
                       <td className="py-2.5 print:py-1 text-[#3E2723]">
                         <div className="flex items-start justify-between gap-2">
                           <span>{item.productName}</span>
-                          {isCorrectable && lineCount > 1 && (
+                          {isCorrectable && (
                             confirmRemoveId === item.id ? (
                               <span className="flex shrink-0 items-center gap-1 print:hidden">
-                                <span className="text-xs text-red-600">Remove?</span>
+                                <span className="text-xs text-red-600">
+                                  {lineCount === 1 ? 'Last item — return all & cancel order?' : 'Remove?'}
+                                </span>
                                 <button
                                   disabled={removingItemId === item.id}
                                   onClick={() => handleRemoveItem(item)}
@@ -403,7 +482,9 @@ export function InvoicePage() {
                               </span>
                             ) : (
                               <button
-                                title="Remove this item from the order (stock is returned)"
+                                title={lineCount === 1
+                                  ? 'Return everything — cancels the order (stock is returned)'
+                                  : 'Remove this item from the order (stock is returned)'}
                                 onClick={() => setConfirmRemoveId(item.id)}
                                 className="h-6 w-6 shrink-0 flex items-center justify-center rounded text-gray-400 hover:text-[#D32F2F] print:hidden"
                               >
