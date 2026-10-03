@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Printer, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Printer, Check, AlertCircle, Trash2, Pencil } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
 interface OrderItem {
+  id: number;
   productName: string;
   price: number;
   quantity: number;
@@ -24,6 +25,7 @@ interface Order {
   channel: 'Online' | 'Walk-in';
   status: 'Pending' | 'Paid' | 'Cancelled' | 'Completed';
   total: number;
+  amountPaid: number | null;
   createdAt: string;
   items: OrderItem[];
 }
@@ -50,6 +52,11 @@ export function InvoicePage() {
   const [feeInput, setFeeInput] = useState('');
   const [savingFee, setSavingFee] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Sales return / correction: quantities being typed but not yet saved, keyed by item id.
+  const [qtyEdits, setQtyEdits] = useState<Record<number, string>>({});
+  const [savingItemId, setSavingItemId] = useState<number | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<number | null>(null);
+  const [removingItemId, setRemovingItemId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!id || !user || !isAdmin) return;
@@ -110,10 +117,120 @@ export function InvoicePage() {
     }
   }
 
+  function clearQtyEdit(itemId: number) {
+    setQtyEdits(prev => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+  }
+
+  // Quantities are a whole number of at least 1 — removing a line has its own trash button.
+  function qtyError(raw: string): string | null {
+    if (raw.trim() === '') return 'Enter a quantity';
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 1) return 'Minimum is 1 — use the trash icon to remove the item';
+    return null;
+  }
+
+  // Only an explicit Save (or Enter) saves. If the server rejects it (e.g. not enough
+  // stock), the box goes back to the last saved quantity instead of keeping the rejected
+  // number on screen.
+  async function handleSaveQty(item: OrderItem) {
+    if (!order || !user) return;
+    const raw = qtyEdits[item.id];
+    if (raw === undefined || qtyError(raw)) return;
+    if (Number(raw) === item.quantity) {
+      clearQtyEdit(item.id);
+      return;
+    }
+
+    setSavingItemId(item.id);
+    setMessage(null);
+    try {
+      const res = await fetch(`${API_URL}/api/orders/${order.id}/items/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
+        body: JSON.stringify({ quantity: Number(raw) }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Could not save this change.');
+      }
+      setOrder(await res.json());
+      setMessage({ type: 'success', text: `${item.productName} quantity updated — stock adjusted.` });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Could not save this change.' });
+    } finally {
+      clearQtyEdit(item.id);
+      setSavingItemId(null);
+    }
+  }
+
+  // Drop a line entirely. Its stock goes back and the total is recomputed on the server.
+  async function handleRemoveItem(item: OrderItem) {
+    if (!order || !user) return;
+    setRemovingItemId(item.id);
+    setMessage(null);
+    try {
+      const res = await fetch(`${API_URL}/api/orders/${order.id}/items/${item.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${user.token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Could not remove this item.');
+      }
+      setOrder(await res.json());
+      clearQtyEdit(item.id);
+      setMessage({ type: 'success', text: `Removed ${item.productName} — stock returned.` });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Could not remove this item.' });
+    } finally {
+      setRemovingItemId(null);
+      setConfirmRemoveId(null);
+    }
+  }
+
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>;
   if (!user || !isAdmin) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-center"><h2 className="text-xl font-bold text-[#3E2723] mb-2">Access Denied</h2><a href="/login" className="text-[#D32F2F] hover:underline">Go to Login</a></div></div>;
   if (error) return <div className="min-h-screen flex items-center justify-center text-gray-500">{error}</div>;
   if (!order) return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading invoice...</div>;
+
+  const isCorrectable = order.status === 'Pending' || order.status === 'Paid';
+  const lineCount = order.items.length;
+  // Compares what the customer paid (snapshotted at Mark as Paid) with the current total.
+  const amountPaid = order.amountPaid;
+  const refundDue =
+    amountPaid === null ? 0 : order.status === 'Cancelled' ? amountPaid : amountPaid - order.total;
+  let paidNotice: ReactNode = null;
+  if (amountPaid !== null && refundDue > 0.005) {
+    paidNotice = (
+      <>
+        <p className="text-sm font-semibold">Refund due: ${refundDue.toFixed(2)}</p>
+        <p className="mt-1">
+          {order.status === 'Cancelled'
+            ? `The customer paid $${amountPaid.toFixed(2)} before this order was cancelled.`
+            : `The customer paid $${amountPaid.toFixed(2)}, but the total is now $${order.total.toFixed(2)}.`}{' '}
+          {order.channel === 'Walk-in' ? 'Refund the difference in cash or by bank transfer.' : 'Refund the difference by bank transfer.'}
+        </p>
+      </>
+    );
+  } else if (amountPaid !== null && refundDue < -0.005 && order.status !== 'Cancelled') {
+    paidNotice = (
+      <>
+        <p className="text-sm font-semibold">Customer still owes: ${(-refundDue).toFixed(2)}</p>
+        <p className="mt-1">The customer paid ${amountPaid.toFixed(2)}, but the total is now ${order.total.toFixed(2)}.</p>
+      </>
+    );
+  } else if (order.status === 'Paid') {
+    paidNotice = (
+      <p>
+        This order is already paid{amountPaid !== null ? ` ($${amountPaid.toFixed(2)})` : ''}. If the customer returns items,
+        change the quantity or remove the item below — the refund amount will show here.
+      </p>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 print:bg-white print:py-0">
@@ -224,6 +341,12 @@ export function InvoicePage() {
             )}
           </div>
 
+          {paidNotice && (
+            <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 print:hidden">
+              {paidNotice}
+            </div>
+          )}
+
           {/* min-w-[420px] is fine on screen (overflow-x-auto lets it scroll), but printing/
               saving as PDF doesn't scroll - on a narrow mobile print canvas that forced
               minimum just got clipped off the page edge instead of shrinking to fit. */}
@@ -250,14 +373,106 @@ export function InvoicePage() {
                     magic number to maintain. Chrome also repeats <thead> on each printed page
                     by default once a table spans more than one, so a second page stays
                     readable with column labels instead of just bare numbers. */}
-                {order.items.map((item, i) => (
-                  <tr key={i} className="border-b border-dashed print:break-inside-avoid">
-                    <td className="py-2.5 print:py-1 text-[#3E2723]">{item.productName}</td>
-                    <td className="py-2.5 print:py-1 text-center text-gray-600">{item.quantity}</td>
-                    <td className="py-2.5 print:py-1 text-right text-gray-600">${item.price.toFixed(2)}</td>
-                    <td className="py-2.5 print:py-1 text-right font-medium text-[#3E2723]">${(item.price * item.quantity).toFixed(2)}</td>
-                  </tr>
-                ))}
+                {order.items.map(item => {
+                  const editRaw = qtyEdits[item.id];
+                  const editErr = editRaw !== undefined ? qtyError(editRaw) : null;
+                  const isSaving = savingItemId === item.id;
+                  return (
+                    <tr key={item.id} className="border-b border-dashed align-top print:break-inside-avoid">
+                      <td className="py-2.5 print:py-1 text-[#3E2723]">
+                        <div className="flex items-start justify-between gap-2">
+                          <span>{item.productName}</span>
+                          {isCorrectable && lineCount > 1 && (
+                            confirmRemoveId === item.id ? (
+                              <span className="flex shrink-0 items-center gap-1 print:hidden">
+                                <span className="text-xs text-red-600">Remove?</span>
+                                <button
+                                  disabled={removingItemId === item.id}
+                                  onClick={() => handleRemoveItem(item)}
+                                  className="h-6 px-2 rounded text-xs font-medium bg-[#D32F2F] text-white hover:bg-red-800 disabled:opacity-50"
+                                >
+                                  {removingItemId === item.id ? 'Removing...' : 'Yes'}
+                                </button>
+                                <button
+                                  disabled={removingItemId === item.id}
+                                  onClick={() => setConfirmRemoveId(null)}
+                                  className="h-6 px-2 rounded text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                                >
+                                  No
+                                </button>
+                              </span>
+                            ) : (
+                              <button
+                                title="Remove this item from the order (stock is returned)"
+                                onClick={() => setConfirmRemoveId(item.id)}
+                                className="h-6 w-6 shrink-0 flex items-center justify-center rounded text-gray-400 hover:text-[#D32F2F] print:hidden"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2.5 print:py-1 text-center text-gray-600">
+                        {isCorrectable && editRaw === undefined ? (
+                          // Read-only until the pen is clicked, so a stray keystroke can't
+                          // change a quantity by accident.
+                          <span className="inline-flex items-center gap-1">
+                            {item.quantity}
+                            <button
+                              title="Edit quantity (customer returned some)"
+                              onClick={() => setQtyEdits(prev => ({ ...prev, [item.id]: String(item.quantity) }))}
+                              className="h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-[#3E2723] print:hidden"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        ) : isCorrectable && editRaw !== undefined ? (
+                          <>
+                            <span className="hidden print:inline">{item.quantity}</span>
+                            <div className="flex flex-col items-center gap-1 print:hidden">
+                              <input
+                                type="number"
+                                min={1}
+                                step={1}
+                                autoFocus
+                                value={editRaw}
+                                disabled={isSaving}
+                                onChange={e => setQtyEdits(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleSaveQty(item);
+                                  if (e.key === 'Escape') clearQtyEdit(item.id);
+                                }}
+                                className={`h-8 w-16 px-1 text-center rounded-lg border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#F9A825] ${editErr ? 'border-red-400' : 'border-gray-300'}`}
+                              />
+                              {editErr && <span className="text-[11px] leading-tight text-red-600">{editErr}</span>}
+                              <span className="flex gap-1">
+                                <button
+                                  disabled={isSaving || editErr !== null}
+                                  onClick={() => handleSaveQty(item)}
+                                  className="h-6 px-2 rounded text-xs font-medium bg-[#3E2723] text-white hover:bg-[#2C1A17] disabled:opacity-50"
+                                >
+                                  {isSaving ? 'Saving...' : 'Save'}
+                                </button>
+                                <button
+                                  disabled={isSaving}
+                                  onClick={() => clearQtyEdit(item.id)}
+                                  className="h-6 px-2 rounded text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                                >
+                                  Cancel
+                                </button>
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          item.quantity
+                        )}
+                      </td>
+                      <td className="py-2.5 print:py-1 text-right text-gray-600">${item.price.toFixed(2)}</td>
+                      <td className="py-2.5 print:py-1 text-right font-medium text-[#3E2723]">${(item.price * item.quantity).toFixed(2)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
