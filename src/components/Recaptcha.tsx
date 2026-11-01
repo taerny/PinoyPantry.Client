@@ -94,7 +94,8 @@ export const Recaptcha = forwardRef<RecaptchaHandle>(function Recaptcha(_props, 
 
   useImperativeHandle(ref, () => ({
     execute: async () => {
-      if (!SITE_KEY) throw new Error('reCAPTCHA is not configured (missing VITE_RECAPTCHA_SITE_KEY).');
+      // reCAPTCHA is opt-in: with no site key configured the check is simply skipped.
+      if (!SITE_KEY) return '';
       try {
         await ready.current;
       } catch {
@@ -117,9 +118,7 @@ export const Recaptcha = forwardRef<RecaptchaHandle>(function Recaptcha(_props, 
     },
   }));
 
-  if (!SITE_KEY) {
-    return <p className="text-xs text-[#D32F2F]">reCAPTCHA is not configured (missing VITE_RECAPTCHA_SITE_KEY).</p>;
-  }
+  if (!SITE_KEY) return null;
 
   return <div ref={containerRef} />;
 });
