@@ -17,6 +17,8 @@ export interface Product {
   category?: string;
   inStock?: boolean;
   inventory?: number;
+  shortDescription?: string; // website copy, shown on the product page
+  publishedAt?: string; // ISO date first published (drives the NEW badge)
   sku?: string;
   tags?: string[];
 }

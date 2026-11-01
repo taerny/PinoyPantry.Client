@@ -519,7 +519,7 @@ export function Header({
           {/* Wraps instead of scrolling: overflow-x-auto forces overflow-y to auto too, which
               showed a scrollbar on ~14" laptops where 8 categories + Pasabuy don't fit in one
               row. Gap tightens on smaller desktops so it usually still fits on one line. */}
-          <ul className="flex flex-wrap items-center justify-center gap-x-2 lg:gap-x-4 xl:gap-x-8 gap-y-1 py-2.5">
+          <ul className="flex flex-nowrap items-center justify-center gap-x-0.5 lg:gap-x-1.5 xl:gap-x-5 py-2.5 text-[13px] lg:text-sm xl:text-base [&_button]:px-2 lg:[&_button]:px-2.5 xl:[&_button]:px-3">
             <li>
               <button
                 onClick={() => onCategoryClick?.("all-products")}

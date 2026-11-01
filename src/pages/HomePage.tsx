@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Sparkles, ChevronsDown } from 'lucide-react';
 import { Hero } from '../components/Hero';
 import { ProductCard } from '../components/ProductCard';
 import { ProductsGridSkeleton } from '../components/Skeleton';
 import { PasabuySection } from '../components/PasabuySection';
 import { PromoCards } from '../components/PromoCards';
 import { useFeaturedProducts } from '../hooks/useProducts';
+import { ApiProductService } from '../services/apiProductService';
+import type { Product } from '../types';
 import { scrollToSection } from '../utils/scrollToSection';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
@@ -16,6 +19,17 @@ export function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { products: featuredProducts, loading: productsLoading } = useFeaturedProducts();
+
+  // Recently published, in-stock products. The whole section stays hidden when there are none,
+  // so the homepage never shows an empty "New Arrivals" box.
+  const [newArrivals, setNewArrivals] = useState<Product[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    ApiProductService.getNewArrivals(4)
+      .then(p => { if (!cancelled) setNewArrivals(p); })
+      .catch(() => { /* optional section - ignore failures */ });
+    return () => { cancelled = true; };
+  }, []);
 
   // Arriving here via the "Pasabuy" nav link from another page — smooth-scroll to
   // the section once it's rendered (App.tsx's route-change scroll-to-top is skipped
@@ -57,6 +71,19 @@ export function HomePage() {
 
   return (
     <>
+      {/* Top strip: points customers at the new items without pushing the regular products down */}
+      {newArrivals.length > 0 && (
+        <button
+          onClick={() => scrollToSection('new-arrivals')}
+          className="group w-full flex items-center justify-center gap-2 md:gap-3 bg-gradient-to-r from-[#F9A825] via-[#FFB300] to-[#F9A825] text-[#3E2723] py-2.5 px-4 text-sm md:text-base font-semibold hover:brightness-95 transition"
+        >
+          <Sparkles className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" aria-hidden="true" />
+          <span className="bg-[#D32F2F] text-white text-[11px] md:text-xs font-extrabold tracking-wider px-2 py-0.5 rounded-full">NEW</span>
+          <span>Fresh arrivals just landed — see what's new</span>
+          <ChevronsDown className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0 animate-bounce" aria-hidden="true" />
+        </button>
+      )}
+
       <Hero />
 
       {/* Featured Products */}
@@ -99,6 +126,44 @@ export function HomePage() {
           )}
         </div>
       </section>
+
+      {/* New Arrivals - only when something was published recently */}
+      {newArrivals.length > 0 && (
+        <section id="new-arrivals" className="py-16 bg-white scroll-mt-20">
+          <div className="container mx-auto px-4">
+            <div className="flex items-end justify-between mb-8 gap-4">
+              <div>
+                <span className="inline-block px-4 py-1 bg-[#3E2723] text-[#F9A825] text-sm font-semibold rounded-full mb-3">
+                  JUST IN
+                </span>
+                <h2 className="text-3xl md:text-4xl font-bold text-[#3E2723]">New Arrivals</h2>
+                <p className="text-gray-600 mt-1">Fresh on our shelves this fortnight</p>
+              </div>
+              <button
+                onClick={() => navigate('/new')}
+                className="flex-shrink-0 flex items-center gap-2 text-[#3E2723] font-medium hover:text-[#D32F2F] transition-colors"
+              >
+                View all <span>→</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+              {newArrivals.map(product => (
+                <ProductCard
+                  key={product.id}
+                  id={product.id}
+                  name={product.name}
+                  price={product.price}
+                  originalPrice={product.originalPrice}
+                  image={product.image}
+                  badge={product.badge}
+                  rating={product.rating}
+                  inventory={product.inventory}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <PasabuySection />
 

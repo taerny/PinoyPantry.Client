@@ -13,6 +13,8 @@ interface ApiProduct {
   imageUrl: string;
   category: string;
   stockQuantity: number;
+  shortDescription?: string;
+  publishedAt?: string | null;
 }
 
 /**
@@ -32,6 +34,13 @@ interface ApiPagedResult<T> {
  *   - imageUrl  →  image
  *   - id number →  id string
  */
+// A product is "new" for this many days after it was first published (matches the API).
+const NEW_DAYS = 14;
+function isNewProduct(publishedAt?: string | null): boolean {
+  if (!publishedAt) return false;
+  return Date.now() - new Date(publishedAt).getTime() < NEW_DAYS * 24 * 60 * 60 * 1000;
+}
+
 function mapApiProduct(p: ApiProduct): Product {
   return {
     id: String(p.id),
@@ -42,10 +51,16 @@ function mapApiProduct(p: ApiProduct): Product {
     category: p.category,
     inStock: p.stockQuantity > 0,
     inventory: p.stockQuantity,
+    shortDescription: p.shortDescription || undefined,
+    publishedAt: p.publishedAt ?? undefined,
+    badge: isNewProduct(p.publishedAt) ? 'NEW' : undefined,
   };
 }
 
 const API_URL = import.meta.env.VITE_API_URL as string;
+
+const LIST_CACHE_MS = 2 * 60 * 1000;
+const listCache = new Map<string, { at: number; value: any }>();
 
 /**
  * Maps URL-friendly slugs (used by the nav menu) to the exact category
@@ -61,17 +76,21 @@ const SLUG_TO_CATEGORY: Record<string, string> = {
   'soups-mixes':     'Soups & Mixes',
   'dairy':           'Dairy',
   'dried-fish':      'Dried Fish',
+  'spreads':         'Spreads',
 };
 
 export const ApiProductService = {
   async getProducts(
     filters?: ProductFilters,
     page = 1,
-    limit = 12
+    limit = 12,
+    opts?: { sort?: 'newest'; newOnly?: boolean }
   ): Promise<ProductsResponse & { totalPages: number; currentPage: number }> {
     const params = new URLSearchParams();
     params.set('page', String(page));
     params.set('limit', String(limit));
+    if (opts?.sort) params.set('sort', opts.sort);
+    if (opts?.newOnly) params.set('newOnly', 'true');
 
     if (filters?.category && filters.category !== 'all-products') {
       // Translate slug to the DB category name; fall back to slug if not mapped
@@ -83,7 +102,13 @@ export const ApiProductService = {
       params.set('search', filters.search);
     }
 
-    const response = await fetch(`${API_URL}/api/products?${params.toString()}`);
+    // Short-lived cache so pressing Back returns to the same list instantly (no reload, no
+    // skeleton flash) instead of re-fetching every product again.
+    const cacheKey = params.toString();
+    const cached = listCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < LIST_CACHE_MS) return cached.value;
+
+    const response = await fetch(`${API_URL}/api/products?${cacheKey}`);
 
     if (!response.ok) {
       throw new Error(`API error: ${response.status} ${response.statusText}`);
@@ -91,13 +116,21 @@ export const ApiProductService = {
 
     const result: ApiPagedResult<ApiProduct> = await response.json();
 
-    return {
+    const value = {
       products: result.data.map(mapApiProduct),
       totalCount: result.totalCount,
       hasMore: result.page < result.totalPages,
       totalPages: result.totalPages,
       currentPage: result.page,
     };
+    listCache.set(cacheKey, { at: Date.now(), value });
+    return value;
+  },
+
+  // Most recently published products still inside the "new" window and in stock.
+  async getNewArrivals(limit = 12): Promise<Product[]> {
+    const result = await this.getProducts(undefined, 1, limit, { sort: 'newest', newOnly: true });
+    return result.products;
   },
 
   async getProductById(id: string): Promise<Product | undefined> {

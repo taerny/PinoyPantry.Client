@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation, useNavigationType } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { CartDrawer } from './components/CartDrawer';
@@ -22,6 +22,8 @@ import { AdminOrdersPage } from './pages/AdminOrdersPage';
 import { AdminNewsletterPage } from './pages/AdminNewsletterPage';
 import { AdminPasabuyPage } from './pages/AdminPasabuyPage';
 import { AdminPasabuySettingsPage } from './pages/AdminPasabuySettingsPage';
+import { ProductPage } from './pages/ProductPage';
+import { NewArrivalsPage } from './pages/NewArrivalsPage';
 import { InvoicePage } from './pages/InvoicePage';
 import { ContactPage } from './pages/ContactPage';
 import { TermsPage } from './pages/TermsPage';
@@ -44,11 +46,59 @@ function AppContent() {
 
   // Scroll to top on route change — skipped when the URL carries a hash (e.g. the
   // Pasabuy nav link's "/#pasabuy"), so it doesn't fight that anchor's own scroll.
+  //
+  // Going BACK (browser Back or the product page's Back button) instead restores the scroll
+  // position the customer left that page at, so they land on the same search/category view,
+  // exactly where they were - not the top of a fresh page.
+  const navigationType = useNavigationType();
+  const scrollPositions = useRef(new Map<string, number>());
+  const restoring = useRef(false);
+  const previousPathname = useRef(location.pathname);
+
+  // Remember where the customer is on the current history entry.
   useEffect(() => {
-    if (!location.hash) {
+    const key = location.key;
+    const onScroll = () => {
+      if (!restoring.current) scrollPositions.current.set(key, window.scrollY);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [location.key]);
+
+  useEffect(() => {
+    const pathChanged = previousPathname.current !== location.pathname;
+    previousPathname.current = location.pathname;
+
+    if (location.hash) return;
+
+    if (navigationType === 'POP') {
+      const target = scrollPositions.current.get(location.key);
+      if (target === undefined) {
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+        return;
+      }
+      // The list may still be rendering (or loading from the short-lived cache), so keep nudging
+      // to the saved position until the page is tall enough to reach it.
+      restoring.current = true;
+      let tries = 0;
+      let timer: number;
+      const attempt = () => {
+        window.scrollTo({ top: target, behavior: 'instant' as ScrollBehavior });
+        tries++;
+        if (Math.abs(window.scrollY - target) > 2 && tries < 40) {
+          timer = window.setTimeout(attempt, 50);
+        } else {
+          restoring.current = false;
+        }
+      };
+      attempt();
+      return () => { window.clearTimeout(timer); restoring.current = false; };
+    }
+
+    if (pathChanged) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [location.pathname, location.hash]);
+  }, [location.key, location.pathname, location.hash, navigationType]);
 
   // Report each client-side route change to GA4 — a no-op in dev/without a Measurement ID,
   // see lib/analytics.
@@ -136,6 +186,8 @@ function AppContent() {
           <Route path="/" element={<HomePage />} />
           <Route path="/category/:slug" element={<CategoryPage />} />
           <Route path="/search" element={<SearchResultsPage />} />
+          <Route path="/product/:id/:slug?" element={<ProductPage />} />
+          <Route path="/new" element={<NewArrivalsPage />} />
           <Route path="/cart" element={<ShoppingCartPage onClose={() => navigate(-1)} onCheckout={() => navigate('/checkout')} />} />
           <Route path="/checkout" element={<CheckoutPage onBack={() => navigate('/cart')} onComplete={() => navigate('/')} />} />
           <Route path="/login" element={<LoginPage onClose={() => navigate('/')} />} />

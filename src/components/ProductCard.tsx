@@ -2,6 +2,8 @@ import { ShoppingCart, Heart } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useCart } from '../contexts/CartContext';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { productPath } from '../utils/productPath';
 
 interface ProductCardProps {
   id: string;
@@ -39,13 +41,14 @@ export function ProductCard({ id, name, price, originalPrice, image, badge, rati
     <div className="bg-white rounded-md shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden group border border-gray-100">
       {/* Image Container - Square */}
       <div className="relative aspect-square overflow-hidden bg-gray-50">
+        <Link to={productPath(id, name)} aria-label={'View ' + name} className="absolute inset-0 z-10" />
         <ImageWithFallback
           src={image}
           alt={name}
           className={`w-full h-full object-contain group-hover:scale-105 transition-transform duration-200 ${isSoldOut ? 'grayscale opacity-60' : ''}`}
         />
         {badge && (
-          <span className="absolute top-2 left-2 bg-[#D32F2F] text-white px-2 py-0.5 rounded-full text-xs">
+          <span className={`absolute top-2 left-2 z-20 text-white px-2 py-0.5 rounded-full text-xs ${badge === 'NEW' ? 'bg-[#F9A825] !text-[#3E2723] font-extrabold tracking-wide -rotate-6 shadow-md ring-2 ring-white' : 'bg-[#D32F2F]'}`}>
             {badge}
           </span>
         )}
@@ -66,14 +69,16 @@ export function ProductCard({ id, name, price, originalPrice, image, badge, rati
             Limited Stock
           </span>
         )}
-        <button className="absolute top-2 right-2 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-white">
+        <button className="absolute top-2 right-2 z-20 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-white">
           <Heart className="w-4 h-4 text-[#D32F2F]" />
         </button>
       </div>
 
       {/* Content - Very Compact */}
       <div className="p-2">
-        <h3 className="mb-1 line-clamp-2 min-h-[2rem] text-xs leading-tight font-medium">{name}</h3>
+        <h3 className="mb-1 line-clamp-2 min-h-[2rem] text-xs leading-tight font-medium">
+          <Link to={productPath(id, name)} className="hover:text-[#D32F2F] transition-colors">{name}</Link>
+        </h3>
         
         {/* Rating - Smaller */}
         <div className="flex items-center gap-0.5 mb-1">
