@@ -1,5 +1,6 @@
 import { RecentSearches } from './RecentSearches';
-import { getRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../utils/searchHistory';
+import { getRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches, type RecentSearch } from '../utils/searchHistory';
+import { productPath } from '../utils/productPath';
 import { ShoppingCart, Search, Menu, User, X, Shield, LogOut, Settings, ChevronDown } from "lucide-react";
 import { Fragment, useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -53,7 +54,7 @@ export function Header({
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const [recentSearches, setRecentSearches] = useState<string[]>(() => getRecentSearches());
+  const [recentSearches, setRecentSearches] = useState<RecentSearch[]>(() => getRecentSearches());
   const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
   const cartCount = getCartCount();
 
@@ -166,24 +167,19 @@ export function Header({
     }
   };
 
-  const handleSuggestionClick = (productName: string) => {
-    console.log('Suggestion clicked - navigating to:', productName);
-    
-    if (onSearch) {
-      setRecentSearches(addRecentSearch(productName));
-      // Navigate immediately
-      onSearch(productName);
-      
-      // Then close UI elements
-      setShowSuggestions(false);
-      setIsMobileSearchOpen(false);
-      setSearchQuery('');
-    }
+  // Picking a specific product from the suggestions goes straight to that product's page.
+  const handleSuggestionClick = (product: Product) => {
+    setRecentSearches(addRecentSearch(product.name, String(product.id)));
+    navigate(productPath(product.id, product.name));
+    setShowSuggestions(false);
+    setIsMobileSearchOpen(false);
+    setSearchQuery('');
   };
 
-  const handleRecentPick = (term: string) => {
-    setRecentSearches(addRecentSearch(term));
-    if (onSearch) onSearch(term);
+  const handleRecentPick = (entry: RecentSearch) => {
+    setRecentSearches(addRecentSearch(entry.term, entry.id));
+    if (entry.id) navigate(productPath(entry.id, entry.term));
+    else if (onSearch) onSearch(entry.term);
     setShowSuggestions(false);
     setIsMobileSearchOpen(false);
     setSearchQuery('');
@@ -304,11 +300,11 @@ export function Header({
                             onMouseDown={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              handleSuggestionClick(product.name);
+                              handleSuggestionClick(product);
                             }}
                             onTouchStart={(e) => {
                               e.stopPropagation();
-                              handleSuggestionClick(product.name);
+                              handleSuggestionClick(product);
                             }}
                             className="w-full px-4 py-3 hover:bg-[#FAF3E0] transition-colors flex items-center gap-3 text-left border-t border-gray-100"
                           >
@@ -407,7 +403,7 @@ export function Header({
                         onMouseDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          handleSuggestionClick(product.name);
+                          handleSuggestionClick(product);
                         }}
                         className="w-full px-4 py-3 hover:bg-[#FAF3E0] transition-colors flex items-center gap-3 text-left border-t border-gray-100"
                       >
