@@ -6,7 +6,7 @@ import { AdminLayout } from '../components/AdminLayout';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
-const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Dried Fish'];
+const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Dried Fish', 'Spreads'];
 
 // "reference" columns (GST, Total Revenue, etc.) are shown read-only for context; the rest are
 // editable and feed straight into the import payload from wherever they sit in the row.
@@ -23,6 +23,9 @@ interface ImportRow {
   category: string;
   categoryGuessed: boolean;
   isPublished: boolean;
+  price: number; // store price (GST-incl.) — prefilled from the sheet's retail price when present
+  shortDescription: string; // admin-only website copy
+  alreadyExists: boolean; // a product with this name is already in the store — skipped on import
 }
 
 function findColumn(row: ImportRow, role: ColumnRole) {
@@ -166,6 +169,10 @@ export function AdminImportPage() {
     setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, category: value, categoryGuessed: false } : r));
   }
 
+  function updatePrice(rowIndex: number, value: string) {
+    setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, price: parseFloat(value) || 0 } : r));
+  }
+
   function updatePublished(rowIndex: number, checked: boolean) {
     setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, isPublished: checked } : r));
   }
@@ -182,20 +189,23 @@ export function AdminImportPage() {
   }
 
   async function handleImport() {
-    if (!user || rows.length === 0) return;
+    // Rows flagged as already existing are left out here (and the server skips them again).
+    const toImport = rows.filter(r => !r.alreadyExists);
+    if (!user || toImport.length === 0) return;
     setImporting(true);
     setMessage(null);
 
     // Pull the typed fields the API needs out of each row's column list (by role) plus the
-    // synthesized Category/Publish — this is the only place raw sheet strings get parsed.
-    // Price is deliberately not set here at all — it's always 0 on import and gets set
-    // afterward on the Products page, once the item actually exists.
-    const payload = rows.map(row => ({
+    // synthesized Category/Publish/Price/ShortDescription — this is the only place raw sheet
+    // strings get parsed. Price is whatever the review table shows (prefilled from the sheet's
+    // retail price when it has one, otherwise 0 to be set afterward on the Products page).
+    const payload = toImport.map(row => ({
       name: findColumn(row, 'name')?.value ?? '',
       category: row.category,
       stockQuantity: parseInt(findColumn(row, 'stock')?.value ?? '', 10) || 0,
       costPrice: parseFloat(findColumn(row, 'cost')?.value ?? '') || 0,
-      price: 0,
+      price: row.price || 0,
+      shortDescription: row.shortDescription ?? '',
       isPublished: row.isPublished,
       recommendedRetail: (() => {
         const v = findColumn(row, 'recommendedRetail')?.value;
@@ -298,6 +308,11 @@ export function AdminImportPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-sm font-medium text-[#3E2723]">{fileName} — {rows.length} product(s) parsed</p>
+                {rows.some(r => r.alreadyExists) && (
+                  <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> {rows.filter(r => r.alreadyExists).length} row(s) already exist in the store (same name) — marked below and skipped automatically.
+                  </p>
+                )}
                 {guessedCategoryCount > 0 && (
                   <p className="text-xs text-blue-600 mt-0.5 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" /> {guessedCategoryCount} row(s) had no Category column — guessed from the product name (marked below). Double-check these before importing.
@@ -314,7 +329,7 @@ export function AdminImportPage() {
                   <Trash2 className="w-4 h-4" /> Cancel
                 </button>
                 <button onClick={handleImport} disabled={importing} className="flex items-center gap-2 px-4 py-2 bg-[#D32F2F] text-white rounded-xl text-sm font-medium hover:bg-[#B71C1C] transition-colors shadow-sm disabled:opacity-50">
-                  {importing ? 'Importing...' : `Import ${rows.length} Product(s)`}
+                  {importing ? 'Importing...' : `Import ${rows.filter(r => !r.alreadyExists).length} Product(s)`}
                 </button>
               </div>
             </div>
@@ -324,6 +339,7 @@ export function AdminImportPage() {
                 <thead className="bg-gray-50 border-b sticky top-0 z-20">
                   <tr>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase whitespace-nowrap sticky left-0 z-10 bg-gray-50 border-r">Category</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-[#D32F2F] uppercase whitespace-nowrap bg-red-50/60" title="Selling price incl. GST — prefilled from the sheet's retail price; editable">Selling Price</th>
                     {rows[0]?.columns.map((col, ci) => (
                       <th
                         key={ci}
@@ -333,6 +349,7 @@ export function AdminImportPage() {
                         {col.name}
                       </th>
                     ))}
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase whitespace-nowrap" title="Admin-only website copy, saved with the product">Short Description</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Publish</th>
                     <th className="px-4 py-3"></th>
                   </tr>
@@ -341,7 +358,7 @@ export function AdminImportPage() {
                   {rows.map((row, i) => {
                     const unknownCategory = !CATEGORIES.includes(row.category);
                     return (
-                      <tr key={i} className="hover:bg-gray-50/50">
+                      <tr key={i} className={row.alreadyExists ? 'bg-amber-50/60 opacity-60' : 'hover:bg-gray-50/50'}>
                         <td className="px-4 py-2 sticky left-0 z-10 bg-white border-r">
                           <div className="flex items-center gap-1.5">
                             <select value={row.category} onChange={e => updateCategory(i, e.target.value)} className={`text-sm px-2 py-1 border rounded focus:outline-none focus:border-[#F9A825] ${unknownCategory ? 'border-amber-400 bg-amber-50' : row.categoryGuessed ? 'border-blue-300 bg-blue-50' : 'border-transparent hover:border-gray-200'}`}>
@@ -355,17 +372,26 @@ export function AdminImportPage() {
                             )}
                           </div>
                         </td>
+                        <td className="px-4 py-2 text-right bg-red-50/40">
+                          <div className="inline-flex items-center gap-0.5">
+                            <span className="text-sm text-gray-500">$</span>
+                            <input type="number" step="0.01" value={row.price} onChange={e => updatePrice(i, e.target.value)} className="w-20 text-sm font-semibold text-right px-2 py-1 border border-gray-200 focus:border-[#F9A825] rounded focus:outline-none" />
+                          </div>
+                        </td>
                         {row.columns.map((col, ci) => (
                           <td key={ci} className="px-4 py-2 text-right">
                             {col.role === 'reference' ? (
-                              <span className="text-sm text-gray-400 whitespace-nowrap">{col.value}</span>
+                              <span className="block max-w-[14rem] truncate text-sm text-gray-400 whitespace-nowrap" title={col.value}>{col.value}</span>
                             ) : col.role === 'name' ? (
-                              <input value={col.value} onChange={e => updateColumn(i, ci, e.target.value)} className="w-full text-sm px-2 py-1 border border-transparent hover:border-gray-200 focus:border-[#F9A825] rounded focus:outline-none text-left" />
+                              <input value={col.value} onChange={e => updateColumn(i, ci, e.target.value)} title={col.value} className="w-full min-w-[22rem] text-sm px-2 py-1 border border-transparent hover:border-gray-200 focus:border-[#F9A825] rounded focus:outline-none text-left" />
                             ) : (
                               <input type="number" step="0.01" value={col.value} onChange={e => updateColumn(i, ci, e.target.value)} className="w-20 text-sm text-right px-2 py-1 border border-transparent hover:border-gray-200 focus:border-[#F9A825] rounded focus:outline-none" />
                             )}
                           </td>
                         ))}
+                        <td className="px-4 py-2 text-left">
+                          <p className="text-xs text-gray-500 max-w-xs line-clamp-2" title={row.shortDescription}>{row.shortDescription || <span className="text-gray-300">—</span>}</p>
+                        </td>
                         <td className="px-4 py-2 text-center">
                           <input type="checkbox" checked={row.isPublished} onChange={e => updatePublished(i, e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-[#D32F2F] focus:ring-[#F9A825]" />
                         </td>

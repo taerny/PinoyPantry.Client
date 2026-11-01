@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ShoppingBag, Check, Phone, Mail, Image as ImageIcon, X, Search } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ShoppingBag, Check, Phone, Mail, Image as ImageIcon, X, Search, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AdminLayout, PASABUY_LAST_SEEN_KEY } from '../components/AdminLayout';
 
@@ -84,9 +85,18 @@ export function AdminPasabuyPage() {
   return (
     <AdminLayout activePage="pasabuy">
       <div className="max-w-5xl mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h2 className="text-xl font-bold text-[#3E2723] flex items-center gap-2"><ShoppingBag className="w-5 h-5" /> Pasabuy Orders</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Order requests submitted via the homepage Pasabuy section.</p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-[#3E2723] flex items-center gap-2"><ShoppingBag className="w-5 h-5" /> Pasabuy Orders</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Order requests submitted via the homepage Pasabuy section.</p>
+          </div>
+          <Link
+            to="/admin/pasabuy-settings"
+            className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium whitespace-nowrap hover:border-[#F9A825] hover:text-[#3E2723] hover:bg-amber-50 transition-colors"
+            title="Edit the cut-off date, wording and open/closed state of the homepage Pasabuy section"
+          >
+            <Settings className="w-4 h-4" /> Pasabuy Settings
+          </Link>
         </div>
 
         {orders.length > 0 && (

@@ -21,6 +21,7 @@ import { AdminHeroPage } from './pages/AdminHeroPage';
 import { AdminOrdersPage } from './pages/AdminOrdersPage';
 import { AdminNewsletterPage } from './pages/AdminNewsletterPage';
 import { AdminPasabuyPage } from './pages/AdminPasabuyPage';
+import { AdminPasabuySettingsPage } from './pages/AdminPasabuySettingsPage';
 import { InvoicePage } from './pages/InvoicePage';
 import { ContactPage } from './pages/ContactPage';
 import { TermsPage } from './pages/TermsPage';
@@ -149,6 +150,7 @@ function AppContent() {
           <Route path="/admin/orders" element={<AdminOrdersPage />} />
           <Route path="/admin/newsletter" element={<AdminNewsletterPage />} />
           <Route path="/admin/pasabuy" element={<AdminPasabuyPage />} />
+          <Route path="/admin/pasabuy-settings" element={<AdminPasabuySettingsPage />} />
           <Route path="/admin/orders/:id/invoice" element={<InvoicePage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/terms" element={<TermsPage />} />

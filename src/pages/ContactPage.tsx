@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Mail, MapPin, Send, CheckCircle } from 'lucide-react';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { Recaptcha, type RecaptchaHandle } from '../components/Recaptcha';
 
 export function ContactPage() {
   useDocumentTitle('Contact Us');
@@ -15,6 +16,7 @@ export function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const recaptchaRef = useRef<RecaptchaHandle>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -22,22 +24,32 @@ export function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
+    setLoading(true);
+
+    let recaptchaToken: string;
+    try {
+      recaptchaToken = await recaptchaRef.current!.execute();
+    } catch (err) {
+      setError((err as Error).message);
+      setLoading(false);
+      return;
+    }
 
     try {
       const apiUrl = import.meta.env.VITE_API_URL;
       const response = await fetch(`${apiUrl}/api/contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, recaptchaToken }),
       });
 
       if (response.ok) {
         setSubmitted(true);
         setFormData({ name: '', email: '', subject: '', message: '' });
       } else {
-        setError('Something went wrong. Please try again.');
+        const err = await response.json().catch(() => ({}));
+        setError(err.message || 'Something went wrong. Please try again.');
       }
     } catch {
       setError('Unable to send message. Please try again later.');
@@ -162,6 +174,8 @@ export function ContactPage() {
                     className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#F9A825] focus:border-transparent resize-none"
                   />
                 </div>
+
+                <Recaptcha ref={recaptchaRef} />
 
                 {error && (
                   <p className="text-red-500 text-sm">{error}</p>

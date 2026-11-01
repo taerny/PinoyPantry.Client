@@ -26,6 +26,8 @@ interface Order {
   status: 'Pending' | 'Paid' | 'Cancelled' | 'Completed';
   total: number;
   amountPaid: number | null;
+  customerIp: string | null;
+  userAgent: string | null;
   createdAt: string;
   items: OrderItem[];
 }
@@ -34,6 +36,25 @@ interface BankDetails {
   bankName: string;
   accountName: string;
   accountNumber: string;
+}
+
+// A rough, human-readable guess at the device from the raw user-agent string — enough to
+// notice "these 4 orders all came from the same Android phone", not a precise fingerprint.
+function describeDevice(ua: string): string {
+  const os =
+    /iPhone/.test(ua) ? 'iPhone' :
+    /iPad/.test(ua) ? 'iPad' :
+    /Android/.test(ua) ? 'Android' :
+    /Windows/.test(ua) ? 'Windows' :
+    /Mac OS X|Macintosh/.test(ua) ? 'Mac' :
+    /Linux/.test(ua) ? 'Linux' : 'Unknown device';
+  const browser =
+    /Edg\//.test(ua) ? 'Edge' :
+    /FBAN|FBAV|FB_IAB/.test(ua) ? 'Facebook app' :
+    /CriOS|Chrome\//.test(ua) ? 'Chrome' :
+    /FxiOS|Firefox\//.test(ua) ? 'Firefox' :
+    /Safari\//.test(ua) ? 'Safari' : 'unknown browser';
+  return `${os} · ${browser}`;
 }
 
 const STATUS_STYLES: Record<Order['status'], string> = {
@@ -380,6 +401,13 @@ export function InvoicePage() {
               {order.customerEmail && <p className="text-sm text-gray-500">{order.customerEmail}</p>}
               {order.customerPhone && <p className="text-sm text-gray-500">{order.customerPhone}</p>}
               {order.customerAddress && <p className="text-sm whitespace-pre-line text-gray-500">{order.customerAddress}</p>}
+              {(order.customerIp || order.userAgent) && (
+                <div className="mt-2 rounded-md bg-gray-50 px-2 py-1.5 text-[11px] text-gray-400 print:hidden">
+                  <p className="font-medium text-gray-500">Submitted from (admin only)</p>
+                  {order.customerIp && <p>IP: {order.customerIp}</p>}
+                  {order.userAgent && <p title={order.userAgent}>Device: {describeDevice(order.userAgent)}</p>}
+                </div>
+              )}
             </div>
 
             {order.deliveryMethod && (

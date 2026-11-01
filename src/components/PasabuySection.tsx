@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Ship, MapPin, CheckCircle, MessageCircle, Plus, X, Image as ImageIcon, Upload, Loader2 } from 'lucide-react';
 import { FacebookF } from './icons/FacebookF';
+import { PasabuySettingsService, FALLBACK_PASABUY_SETTINGS, withCutoff, type PasabuySettings } from '../services/pasabuySettingsService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
@@ -14,22 +15,6 @@ interface PasabuyItemForm {
 
 const EMPTY_ITEM: PasabuyItemForm = { productName: '', quantity: '1', imageUrl: '', notes: '', uploading: false };
 
-const HOW_IT_WORKS = [
-  'Think of a product that you want.',
-  'Send us your order.',
-  'Payment required upon delivery/pick up.',
-  'We purchase your items in the Philippines and arrange shipping to New Zealand.',
-  "Once your order arrives in Dunedin, we'll contact you regarding collection/delivery.",
-];
-
-const PLEASE_NOTE = [
-  'Orders are subject to product availability in the Philippines.',
-  'If an item becomes unavailable, we will contact you regarding a suitable alternative.',
-  'The arrival date is an estimated ETA, not a guaranteed delivery date. Shipping schedules, customs clearance and MPI processing can sometimes cause delays.',
-  'Once your order has been submitted, cancellations may not be possible as we purchase items specifically for each customer.',
-  'Please check your order carefully before submitting it.',
-];
-
 const EMPTY_FORM = { name: '', phone: '', email: '', notes: '' };
 
 export function PasabuySection() {
@@ -38,12 +23,24 @@ export function PasabuySection() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // All wording, the cut-off date and the open/closed state come from the admin-editable
+  // settings (Admin -> Pasabuy -> Settings), not hardcoded here.
+  const [settings, setSettings] = useState<PasabuySettings | null>(null);
+  useEffect(() => {
+    PasabuySettingsService.get()
+      .then(setSettings)
+      .catch(() => setSettings(FALLBACK_PASABUY_SETTINGS));
+  }, []);
+
+  // A new row can only be added once the last one has a product name - no piling up blanks.
+  const canAddItem = items[items.length - 1].productName.trim() !== '' && !items[items.length - 1].uploading;
+
   function updateItem(index: number, patch: Partial<PasabuyItemForm>) {
     setItems(prev => prev.map((it, i) => i === index ? { ...it, ...patch } : it));
   }
 
   function addItem() {
-    setItems(prev => [...prev, { ...EMPTY_ITEM }]);
+    setItems(prev => prev[prev.length - 1].productName.trim() === '' ? prev : [...prev, { ...EMPTY_ITEM }]);
   }
 
   function removeItem(index: number) {
@@ -114,19 +111,23 @@ export function PasabuySection() {
     }
   }
 
+  // Keep the anchor in the page while the settings load so "/#pasabuy" links still land here.
+  if (!settings) return <section id="pasabuy" className="scroll-mt-16" />;
+
+  const isOpen = settings.isOpen;
+
   return (
     <section id="pasabuy" className="py-20 bg-gradient-to-b from-[#FFF8E1] to-white scroll-mt-16">
       <div className="container mx-auto px-4">
         <div className="max-w-5xl mx-auto text-center mb-12">
-          <span className="inline-block px-4 py-1 bg-[#D32F2F] text-white text-sm font-semibold rounded-full mb-4">
-            🇵🇭 PASABUY — ORDERS NOW OPEN 🇳🇿
+          <span className={`inline-block px-4 py-1 text-white text-sm font-semibold rounded-full mb-4 ${isOpen ? 'bg-[#D32F2F]' : 'bg-gray-500'}`}>
+            {isOpen ? settings.badgeText : settings.closedBadgeText}
           </span>
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-[#3E2723]">
-            Filipino Grocery Pasabuy
+            {withCutoff(settings.heading, settings)}
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Missing your favourite Filipino snacks, biscuits, canned goods and pantry essentials?
-            We're now taking orders for our next Filipino grocery shipment! 🇵🇭❤️
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto whitespace-pre-line">
+            {withCutoff(settings.intro, settings)}
           </p>
 
           <div className="flex flex-wrap justify-center gap-4 mt-8">
@@ -134,21 +135,21 @@ export function PasabuySection() {
               <Calendar className="w-5 h-5 text-[#D32F2F] flex-shrink-0" />
               <div className="text-left">
                 <p className="text-xs text-gray-400 uppercase font-semibold">Order Cut-off</p>
-                <p className="text-sm font-bold text-[#3E2723]">20 September 2026</p>
+                <p className="text-sm font-bold text-[#3E2723]">{settings.cutoffDisplay}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 bg-white border border-[#F9A825]/40 rounded-xl px-5 py-3 shadow-sm">
               <Ship className="w-5 h-5 text-[#D32F2F] flex-shrink-0" />
               <div className="text-left">
                 <p className="text-xs text-gray-400 uppercase font-semibold">Estimated Arrival</p>
-                <p className="text-sm font-bold text-[#3E2723]">Last week of September 2026</p>
+                <p className="text-sm font-bold text-[#3E2723]">{withCutoff(settings.estimatedArrival, settings)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 bg-white border border-[#F9A825]/40 rounded-xl px-5 py-3 shadow-sm">
               <MapPin className="w-5 h-5 text-[#D32F2F] flex-shrink-0" />
               <div className="text-left">
                 <p className="text-xs text-gray-400 uppercase font-semibold">Collection</p>
-                <p className="text-sm font-bold text-[#3E2723]">Dunedin, NZ</p>
+                <p className="text-sm font-bold text-[#3E2723]">{settings.collection}</p>
               </div>
             </div>
           </div>
@@ -160,12 +161,12 @@ export function PasabuySection() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <h3 className="font-bold text-[#3E2723] mb-3">🛒 How It Works</h3>
               <ol className="space-y-2.5">
-                {HOW_IT_WORKS.map((step, i) => (
+                {settings.howItWorks.map((step, i) => (
                   <li key={i} className="flex gap-3 text-sm text-gray-600">
                     <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#F9A825]/20 text-[#3E2723] text-xs font-bold flex items-center justify-center mt-0.5">
                       {i + 1}
                     </span>
-                    {step}
+                    {withCutoff(step, settings)}
                   </li>
                 ))}
               </ol>
@@ -173,21 +174,18 @@ export function PasabuySection() {
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <h3 className="font-bold text-[#3E2723] mb-2">💰 Pricing</h3>
-              <p className="text-sm text-gray-600">
-                Our prices are calculated to include the product cost, international freight and
-                anticipated import/clearance costs. Additional charges may apply in exceptional
-                circumstances (e.g. unforeseen customs/MPI inspection costs) — if any unexpected
-                charge affects your order, we'll contact you before proceeding.
+              <p className="text-sm text-gray-600 whitespace-pre-line">
+                {withCutoff(settings.pricingText, settings)}
               </p>
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <h3 className="font-bold text-[#3E2723] mb-3">📦 Please Note</h3>
               <ul className="space-y-2">
-                {PLEASE_NOTE.map((note, i) => (
+                {settings.pleaseNote.map((note, i) => (
                   <li key={i} className="flex gap-2 text-sm text-gray-600">
                     <span className="text-[#D32F2F] flex-shrink-0">•</span>
-                    {note}
+                    {withCutoff(note, settings)}
                   </li>
                 ))}
               </ul>
@@ -196,7 +194,21 @@ export function PasabuySection() {
 
           {/* Order Form */}
           <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-100 shadow-xl p-8">
-            {result?.type === 'success' ? (
+            {!isOpen ? (
+              <div className="flex flex-col items-center text-center py-10 gap-3">
+                <Ship className="w-14 h-14 text-gray-300" />
+                <h3 className="text-xl font-bold text-[#3E2723]">Orders Closed</h3>
+                <p className="text-gray-500 max-w-sm whitespace-pre-line">{withCutoff(settings.closedMessage, settings)}</p>
+                <a
+                  href="https://www.facebook.com/profile.php?id=61593512277062"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1.5 px-5 py-2 bg-[#1877F2] text-white font-semibold rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  <FacebookF className="w-3.5 h-3.5" /> Follow us for updates
+                </a>
+              </div>
+            ) : result?.type === 'success' ? (
               <div className="flex flex-col items-center text-center py-10 gap-3">
                 <CheckCircle className="w-14 h-14 text-green-500" />
                 <h3 className="text-xl font-bold text-[#3E2723]">Order Received!</h3>
@@ -210,9 +222,9 @@ export function PasabuySection() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
-                <h3 className="text-xl font-bold text-[#3E2723] mb-1">Send Us Your Order</h3>
+                <h3 className="text-xl font-bold text-[#3E2723] mb-1">{withCutoff(settings.formTitle, settings)}</h3>
                 <p className="text-sm text-gray-500 mb-4">
-                  Limited shipment capacity available, so get your orders in before 20 September! 🇵🇭❤️
+                  {withCutoff(settings.formBlurb, settings)}
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -322,10 +334,15 @@ export function PasabuySection() {
                   <button
                     type="button"
                     onClick={addItem}
-                    className="mt-2 flex items-center gap-1.5 text-sm font-medium text-[#D32F2F] hover:text-[#B71C1C] transition-colors"
+                    disabled={!canAddItem}
+                    className="mt-2 flex items-center gap-1.5 text-sm font-medium text-[#D32F2F] hover:text-[#B71C1C] transition-colors disabled:text-gray-300 disabled:cursor-not-allowed disabled:hover:text-gray-300"
+                    title={canAddItem ? 'Add another item' : 'Enter a product name for the item above first'}
                   >
                     <Plus className="w-4 h-4" /> Add Item
                   </button>
+                  {!canAddItem && (
+                    <p className="mt-1 text-[11px] text-gray-400">Enter the product name above first, then you can add another item.</p>
+                  )}
                   <p className="mt-1 text-[11px] text-gray-400 flex items-center gap-1">
                     <Upload className="w-3 h-3" /> Tip: a reference photo helps us find the exact brand/packaging.
                   </p>

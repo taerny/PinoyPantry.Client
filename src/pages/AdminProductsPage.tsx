@@ -6,7 +6,7 @@ import { ProductBatchesModal } from '../components/ProductBatchesModal';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:7136';
 
-const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Dried Fish', 'Other'];
+const CATEGORIES = ['Noodles', 'Condiments', 'Soups & Mixes', 'Canned Goods', 'Snacks', 'Dairy', 'Beverages', 'Frozen', 'Rice & Grains', 'Dried Fish', 'Spreads', 'Other'];
 
 const GST_RATE = 0.15;
 
@@ -33,6 +33,8 @@ interface Product {
   id: number;
   name: string;
   description: string;
+  shortDescription: string; // admin-only copy, never sent to the public site
+  createdAt: string; // ISO timestamp the product was added
   price: number;
   costPrice: number;
   imageUrl: string;
@@ -61,7 +63,7 @@ interface InlineEdit {
   value: string;
 }
 
-const EMPTY_FORM = { name: '', description: '', price: '', category: '', imageUrl: '', isPublished: false, margin: '', code: '' };
+const EMPTY_FORM = { name: '', description: '', shortDescription: '', price: '', category: '', imageUrl: '', isPublished: false, margin: '', code: '' };
 
 // Reads a failed fetch Response and returns a human-readable message.
 // Handles both { message: "..." } and FluentValidation's
@@ -97,6 +99,7 @@ export function AdminProductsPage() {
   const [priceOverridden, setPriceOverridden] = useState(false);
   const [pricingTab, setPricingTab] = useState<'supplier' | 'store'>('supplier');
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name'>('newest');
   const [showReview, setShowReview] = useState(false);
   const [ignoredMismatches, setIgnoredMismatches] = useState<Record<number, IgnoredMismatch>>(() => loadIgnoredMismatches());
 
@@ -168,6 +171,7 @@ export function AdminProductsPage() {
       ? {
           name: form.name,
           description: form.description,
+          shortDescription: form.shortDescription,
           price: parseFloat(form.price) || 0,
           category: form.category,
           imageUrl: form.imageUrl,
@@ -177,6 +181,7 @@ export function AdminProductsPage() {
       : {
           name: form.name,
           description: form.description,
+          shortDescription: form.shortDescription,
           price: 0,
           category: form.category,
           imageUrl: form.imageUrl,
@@ -385,6 +390,7 @@ export function AdminProductsPage() {
     setForm({
       name: product.name ?? '',
       description: product.description ?? '',
+      shortDescription: product.shortDescription ?? '',
       price: String(product.price ?? 0),
       category: product.category ?? '',
       imageUrl: product.imageUrl ?? '',
@@ -465,12 +471,28 @@ export function AdminProductsPage() {
   if (!user || !isAdmin) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-center"><h2 className="text-xl font-bold text-[#3E2723] mb-2">Access Denied</h2><a href="/login" className="text-[#D32F2F] hover:underline">Go to Login</a></div></div>;
 
   const searchTerm = search.trim().toLowerCase();
-  const filteredProducts = searchTerm === ''
+  const searchedProducts = searchTerm === ''
     ? products
     : products.filter(p =>
         p.name.toLowerCase().includes(searchTerm) ||
         (p.code ?? '').toLowerCase().includes(searchTerm)
       );
+
+  // Newest/oldest sort by the date the product was added (id breaks ties within the same
+  // import batch), so freshly imported items are easy to find and review.
+  const filteredProducts = [...searchedProducts].sort((a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name);
+    const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() || a.id - b.id;
+    return sortBy === 'newest' ? -diff : diff;
+  });
+
+  const NEW_PRODUCT_DAYS = 7;
+  function isNewProduct(p: Product) {
+    return Date.now() - new Date(p.createdAt).getTime() < NEW_PRODUCT_DAYS * 24 * 60 * 60 * 1000;
+  }
+  function formatAdded(p: Product) {
+    return new Date(p.createdAt).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
 
   // ── Store Review data ───────────────────────────────────────────────────
   // Price mismatches: Store Price differs meaningfully (1+ cent) from the computed
@@ -537,6 +559,16 @@ export function AdminProductsPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as 'newest' | 'oldest' | 'name')}
+              className="px-3 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-[#F9A825]/40"
+              title="Sort the product list"
+            >
+              <option value="newest">Newest added first</option>
+              <option value="oldest">Oldest added first</option>
+              <option value="name">Name A–Z</option>
+            </select>
             <button
               onClick={() => setShowReview(true)}
               className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium whitespace-nowrap hover:border-[#F9A825] hover:text-[#3E2723] hover:bg-amber-50 transition-colors relative"
@@ -609,6 +641,7 @@ export function AdminProductsPage() {
                   <div className="flex-1 min-w-0 space-y-2">
                     <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Product name" className="w-full px-3 py-2 text-base font-semibold text-[#3E2723] border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825]" required />
                     <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description (optional)" className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825] h-16 resize-none" />
+                    <textarea value={form.shortDescription} onChange={e => setForm({ ...form, shortDescription: e.target.value })} placeholder="Short website description (admin-only — not shown to customers)" className="w-full px-3 py-2 text-sm border border-dashed border-amber-300 bg-amber-50/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F9A825] h-20 resize-none" />
                   </div>
                 </div>
 
@@ -1054,6 +1087,16 @@ export function AdminProductsPage() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">
                   Category <span className="text-gray-300 font-normal normal-case">(click to edit)</span>
                 </th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell whitespace-nowrap">
+                  <button
+                    type="button"
+                    onClick={() => setSortBy(sortBy === 'newest' ? 'oldest' : 'newest')}
+                    className="uppercase font-semibold hover:text-[#3E2723]"
+                    title="Click to sort by date added"
+                  >
+                    Date Added {sortBy === 'newest' ? '↓' : sortBy === 'oldest' ? '↑' : ''}
+                  </button>
+                </th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">
                   Cost
                 </th>
@@ -1085,7 +1128,12 @@ export function AdminProductsPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-[#3E2723] truncate">{product.name}</p>
-                          <p className="text-xs text-gray-400">#{product.id}</p>
+                          <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                            #{product.id}
+                          </p>
+                          {product.shortDescription && (
+                            <p className="text-xs text-gray-500 line-clamp-2 mt-0.5 max-w-md" title={product.shortDescription}>{product.shortDescription}</p>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -1093,6 +1141,12 @@ export function AdminProductsPage() {
                     {/* Category — locked, from supplier data */}
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span className="text-sm text-gray-500" title="From supplier data — locked">{product.category}</span>
+                    </td>
+
+                    {/* Date added */}
+                    <td className="px-4 py-3 hidden md:table-cell whitespace-nowrap">
+                      <span className="text-sm text-gray-600">{formatAdded(product)}</span>
+                      {isNewProduct(product) && <span className="ml-1.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-1.5 py-0.5">NEW</span>}
                     </td>
 
                     {/* Cost Price — locked, from supplier data */}
@@ -1197,7 +1251,13 @@ export function AdminProductsPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-[#3E2723] truncate">{product.name}</p>
-                    <p className="text-xs text-gray-400">#{product.id}</p>
+                    <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                      #{product.id} · Added {formatAdded(product)}
+                      {isNewProduct(product) && <span className="text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-1.5 py-0.5">NEW</span>}
+                    </p>
+                    {product.shortDescription && (
+                      <p className="text-xs text-gray-500 line-clamp-2 mt-0.5" title={product.shortDescription}>{product.shortDescription}</p>
+                    )}
                   </div>
                   <button
                     onClick={() => togglePublish(product)}
