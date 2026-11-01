@@ -16,7 +16,7 @@ interface ProductCardProps {
   inventory?: number;
 }
 
-export function ProductCard({ id, name, price, originalPrice, image, badge, rating = 4.5, inventory }: ProductCardProps) {
+export function ProductCard({ id, name, price, originalPrice, image, badge, inventory }: ProductCardProps) {
   const { addToCart } = useCart();
   const [isAdding, setIsAdding] = useState(false);
   const discount = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
@@ -80,18 +80,6 @@ export function ProductCard({ id, name, price, originalPrice, image, badge, rati
           <Link to={productPath(id, name)} className="hover:text-[#D32F2F] transition-colors">{name}</Link>
         </h3>
         
-        {/* Rating - Smaller */}
-        <div className="flex items-center gap-0.5 mb-1">
-          <div className="flex text-xs">
-            {[...Array(5)].map((_, i) => (
-              <span key={i} className={i < Math.floor(rating) ? 'text-[#F9A825]' : 'text-gray-300'}>
-                ★
-              </span>
-            ))}
-          </div>
-          <span className="text-[10px] text-muted-foreground ml-0.5">({rating})</span>
-        </div>
-
         {/* Price */}
         <div className="flex items-center gap-1.5 mb-2">
           <span className="text-[#D32F2F] font-semibold text-sm">${price?.toFixed(2) || '0.00'}</span>

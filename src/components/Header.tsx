@@ -1,3 +1,5 @@
+import { RecentSearches } from './RecentSearches';
+import { getRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../utils/searchHistory';
 import { ShoppingCart, Search, Menu, User, X, Shield, LogOut, Settings, ChevronDown } from "lucide-react";
 import { Fragment, useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -51,6 +53,7 @@ export function Header({
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => getRecentSearches());
   const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
   const cartCount = getCartCount();
 
@@ -155,6 +158,7 @@ export function Header({
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim() && onSearch) {
+      setRecentSearches(addRecentSearch(searchQuery.trim()));
       onSearch(searchQuery.trim());
       setSearchQuery('');
       setShowSuggestions(false);
@@ -166,6 +170,7 @@ export function Header({
     console.log('Suggestion clicked - navigating to:', productName);
     
     if (onSearch) {
+      setRecentSearches(addRecentSearch(productName));
       // Navigate immediately
       onSearch(productName);
       
@@ -176,14 +181,39 @@ export function Header({
     }
   };
 
+  const handleRecentPick = (term: string) => {
+    setRecentSearches(addRecentSearch(term));
+    if (onSearch) onSearch(term);
+    setShowSuggestions(false);
+    setIsMobileSearchOpen(false);
+    setSearchQuery('');
+  };
+
+  const recentDropdown = (className: string) =>
+    showSuggestions && searchQuery.trim().length === 0 ? (
+      <RecentSearches
+        searches={recentSearches}
+        onPick={handleRecentPick}
+        onRemove={term => setRecentSearches(removeRecentSearch(term))}
+        onClear={() => setRecentSearches(clearRecentSearches())}
+        className={className}
+      />
+    ) : null;
+
   const handleInputChange = (value: string) => {
     setSearchQuery(value);
     if (value.trim().length < 2) {
-      setShowSuggestions(false);
+      // Empty box shows recent searches; a single typed letter shows nothing yet.
+      setShowSuggestions(value.trim().length === 0 && recentSearches.length > 0);
     }
   };
 
   const handleInputFocus = () => {
+    // Empty box: show the customer's recent searches
+    if (searchQuery.trim().length === 0 && recentSearches.length > 0) {
+      setShowSuggestions(true);
+      return;
+    }
     // Show suggestions if there's already text in the input
     if (searchQuery.trim().length >= 2 && suggestions.length > 0) {
       setShowSuggestions(true);
@@ -251,6 +281,8 @@ export function Header({
                     </button>
                   </div>
                 </form>
+
+                {recentDropdown('absolute top-full mt-2 left-0 right-0')}
 
                 {/* Mobile Search Suggestions */}
                 {showSuggestions && searchQuery.trim().length >= 2 && (
@@ -352,6 +384,8 @@ export function Header({
                 </button>
               </div>
             </form>
+
+            {recentDropdown('absolute top-full mt-2 w-full')}
 
             {/* Search Suggestions Dropdown */}
             {showSuggestions && (searchQuery.trim().length >= 2) && (
